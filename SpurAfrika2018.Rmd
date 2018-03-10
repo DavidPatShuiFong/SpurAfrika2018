@@ -1,24 +1,32 @@
 ---
 title: "SpurAfrika2018"
-output: html_document
+output:
+  html_document:
+    keep_md: yes
+  pdf_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# Spur Afrika January 2018 clinic data
 
-``` {r}
-# start necessar libraries
+``` {r results='hide', message=FALSE, warning=FALSE}
+# start necessary libraries
 
-library(tidyverse)
 library(airtabler)
 # airtabler required to read airtable database
 # airtabler is installed by 'devtools::install_github("bergant/airtabler")'
 
+library(tidyverse)
+library(lubridate)
+
 library(knitr)
+
+# plotting libraries
 library(ggplot2)
+library(plotly)
 ```
 
 ``` {r}
@@ -26,19 +34,80 @@ library(ggplot2)
 ClinicData <- 
   airtable(
     base = 'appXwAbxa7r6bkKnO',
-    tables = 'SpurAfrika2018'
+    tables = c('SpurAfrika2018','Schools','FindingCodes','ManagementCodes')
   )
 
-RawPatientData <- ClinicData$SpurAfrika2018$select_all()
+RawPatientData <- as.tibble(ClinicData$SpurAfrika2018$select_all())
+RawSchoolData <- as.tibble(ClinicData$Schools$select_all())
+RawFindingCodes <- as.tibble(ClinicData$FindingCodes$select_all())
+RawMangementCodes <- as.tibble(ClinicData$ManagementCodes$select_all())
 
-```
-
-``` {r}
 # turn variable names into valid R names e.g. remove spaces
 names(RawPatientData) <- make.names(names(RawPatientData))
 ```
 
-Dubious data
+## Adjust and re-calculate some data
+
+Attach variable **SchoolName** to each student.
+Variable **School.Name** contains the school's database ID
+
+Recalculate **Age.in.years** with **Data.collection.date** and **Date.of.birth**
+
+``` {r}
+# find actual ctual name (instead of the ID)
+RawPatientData$SchoolName <- RawSchoolData$SchoolName[match(RawPatientData$School.Name,RawSchoolData$id)]
+
+# re-calculate age in years
+RawPatientData$Age.in.years <- as.numeric(as.Date(RawPatientData$Data.collection.date)-as.Date(RawPatientData$Date.of.birth))/365
+
+```
+
+## Missing data
+
+Report missing date data (**Date.of.birth** and **Data.collection.date**) and subsequently
+unable to calculate **Age.in.years**.
+
+List patients with missing data.
+
+Summarize patients with missing data by recorded **Form.Grade**.
+
+``` {r}
+
+missing.dob <- sum(is.na(as.Date(RawPatientData$Date.of.birth)))
+missing.dateofcollection <- sum(is.na(as.Date(RawPatientData$Data.collection.date)))
+missing.Age <- sum(is.na(RawPatientData$Age.in.years))
+
+sprintf('Patients with missing Date of Birth: %d', missing.dob)
+sprintf('Patients with missing date of data collection : %d', missing.dateofcollection)
+sprintf('Patients unable to calculate age: %d', missing.Age)
+
+kable(RawPatientData[is.na(as.Date(RawPatientData$Date.of.birth)),c('Full.name','Date.of.birth','SchoolName','Form.Grade','Height')],
+            caption = 'Missing Date of Birth')
+
+RawPatientData[is.na(as.Date(RawPatientData$Date.of.birth)),
+               c('Full.name','Date.of.birth','SchoolName','Form.Grade','Height')] %>% 
+  group_by(Form.Grade) %>% 
+  summarize(n=n()) %>%
+  kable
+
+```
+
+## Average age and **Form.Grade**
+
+Summarize mean age of patients by **Form.Grade**, for patients who do not have missing **Age.in.years**
+
+``` {r}
+
+RawPatientData[!is.na(as.Date(RawPatientData$Date.of.birth)),
+               c('Full.name','Date.of.birth','Age.in.years','SchoolName','Form.Grade','Height')] %>%
+  group_by(Form.Grade) %>%
+  summarize(n=n(), MeanAge = mean(Age.in.years, na.rm = TRUE)) %>%
+  kable
+
+```
+
+
+## Dubious data
 
 ``` {r}
 
@@ -46,7 +115,7 @@ q <- RawPatientData %>%
   filter(as.integer(Age.in.years) <= 0) %>%
   select(c('Full.name','Date.of.birth','Age.in.years','Gender','Data.collection.date','Weight','Height'))
 
-kable(q)
+kable(q, caption = 'Dubious dates and ages')
 
 # remove dubious data
 
@@ -64,7 +133,9 @@ p <- PatientData %>%
   group_by(Age, Gender) %>%
   summarize(n = n())
 
-print (p)
+TotalPatients <- sum(p$n)
+MedianAge <- median(as.numeric(PatientData$Age.in.years[PatientData$Age.in.years<=18]))
+MeanAge <- mean(as.numeric(PatientData$Age.in.years[PatientData$Age.in.years<=18]))
 
 # ggplot version of plot
 gg <- p %>%
@@ -82,15 +153,22 @@ gg <- p %>%
 # plotly version of plot
 gp <- p %>%
   spread(Gender, n) %>% # divide male and female into two different variables
-  mutate(Male = -Male) %>% # change male count into negative for 'left'-side of plot
-  plot_ly(x = ~Female, y = ~Age, type = 'bar',
-          orientation = 'h', name = 'Female') %>%
-  add_trace (x = ~Male, name = 'Male') %>%
+  mutate(MalePlot = -Male) %>% # negative male count for 'left'-side of plot
+  plot_ly(x = ~Female, y = ~Age, name = 'Female',
+          type = 'bar', orientation = 'h',
+          hoverinfo = 'text', text = ~paste('Age: ',Age,'years<br>Number :',Female,'<br>Female')) %>%
+  add_trace (x = ~MalePlot, name = 'Male',
+             hoverinfo = 'text', text = ~paste('Age: ',Age,'years<br>Number :',Male,'<br>Male')) %>%
   layout (xaxis = list(title='Number of children in each age group', tickmode = 'array',
                        tickvals = c(-60, -40, -20, 0, 20, 40, 60),
-                       ticktext = c('60', '40', '20', '0', '20', '40', '60')),
+                       ticktext = c('60', '40', '20', '0', '20', '40', '60')), # for 'negative' number, change to absolute value
           yaxis = list(title='Age'),
-          barmode = 'overlay')
+          barmode = 'overlay',
+          title = 'Spur Afrika 2018 clinics - age of children seen',
+          annotations = list(list(x = 40, y = 3, showarrow = F,
+                                 text = ~paste('Total children', TotalPatients,
+                                               '<br>Median age: ', MedianAge,
+                                               '<br>Mean age: ', MeanAge))))
 
-print(gp)
+gp
 ```
