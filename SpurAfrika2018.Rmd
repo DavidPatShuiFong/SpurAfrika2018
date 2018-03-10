@@ -1,9 +1,10 @@
 ---
 title: "SpurAfrika2018"
 output:
+  pdf_document: default
   html_document:
     keep_md: yes
-  pdf_document: default
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -27,6 +28,11 @@ library(knitr)
 # plotting libraries
 library(ggplot2)
 library(plotly)
+library(webshot)
+
+is_pdf <- try (("pdf_document" %in% rmarkdown::all_output_formats(knitr::current_input())), silent=TRUE)
+is_pdf <- (is_pdf == TRUE)
+
 ```
 
 ``` {r}
@@ -94,7 +100,7 @@ RawPatientData[is.na(as.Date(RawPatientData$Date.of.birth)),
 
 ## Average age and **Form.Grade**
 
-Summarize mean age of patients by **Form.Grade**, for patients who do not have missing **Age.in.years**
+Summarize mean age of patients by **Form.Grade**, for patients who have calculated **Age.in.years**
 
 ``` {r}
 
@@ -156,19 +162,22 @@ gp <- p %>%
   mutate(MalePlot = -Male) %>% # negative male count for 'left'-side of plot
   plot_ly(x = ~Female, y = ~Age, name = 'Female',
           type = 'bar', orientation = 'h',
-          hoverinfo = 'text', text = ~paste('Age: ',Age,'years<br>Number :',Female,'<br>Female')) %>%
+          hoverinfo = 'text', 
+          text = ~paste('Age: ',Age,'years<br>Number :',Female,'<br>Female')) %>%
   add_trace (x = ~MalePlot, name = 'Male',
-             hoverinfo = 'text', text = ~paste('Age: ',Age,'years<br>Number :',Male,'<br>Male')) %>%
+             hoverinfo = 'text', 
+             text = ~paste('Age: ',Age,'years<br>Number :',Male,'<br>Male')) %>%
   layout (xaxis = list(title='Number of children in each age group', tickmode = 'array',
                        tickvals = c(-60, -40, -20, 0, 20, 40, 60),
-                       ticktext = c('60', '40', '20', '0', '20', '40', '60')), # for 'negative' number, change to absolute value
+                       # for 'negative' number, change to absolute value
+                       ticktext = c('60', '40', '20', '0', '20', '40', '60')),
           yaxis = list(title='Age'),
           barmode = 'overlay',
           title = 'Spur Afrika 2018 clinics - age of children seen',
           annotations = list(list(x = 40, y = 3, showarrow = F,
                                  text = ~paste('Total children', TotalPatients,
-                                               '<br>Median age: ', MedianAge,
-                                               '<br>Mean age: ', MeanAge))))
+                                               '<br>Median age: ', sprintf('%.1f',MedianAge),
+                                               '<br>Mean age: ', sprintf('%.1f',MeanAge)))))
 
-gp
+
 ```
