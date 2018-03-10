@@ -1,0 +1,96 @@
+---
+title: "SpurAfrika2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+``` {r}
+# start necessar libraries
+
+library(tidyverse)
+library(airtabler)
+# airtabler required to read airtable database
+# airtabler is installed by 'devtools::install_github("bergant/airtabler")'
+
+library(knitr)
+library(ggplot2)
+```
+
+``` {r}
+# read in data
+ClinicData <- 
+  airtable(
+    base = 'appXwAbxa7r6bkKnO',
+    tables = 'SpurAfrika2018'
+  )
+
+RawPatientData <- ClinicData$SpurAfrika2018$select_all()
+
+```
+
+``` {r}
+# turn variable names into valid R names e.g. remove spaces
+names(RawPatientData) <- make.names(names(RawPatientData))
+```
+
+Dubious data
+
+``` {r}
+
+q <- RawPatientData %>%
+  filter(as.integer(Age.in.years) <= 0) %>%
+  select(c('Full.name','Date.of.birth','Age.in.years','Gender','Data.collection.date','Weight','Height'))
+
+kable(q)
+
+# remove dubious data
+
+PatientData <- RawPatientData %>%
+  filter(as.integer(Age.in.years) > 0)
+
+```
+
+``` {r}
+
+# create summary of patients by age and gender (only those aged 18 or below)
+p <- PatientData %>%
+  filter(as.integer(Age.in.years)<=18) %>%
+  mutate(Age = as.integer(Age.in.years)) %>%
+  group_by(Age, Gender) %>%
+  summarize(n = n())
+
+print (p)
+
+# ggplot version of plot
+gg <- p %>%
+  mutate(PlotCount = n*ifelse(Gender == 'Female',1,-1)) %>%
+  ggplot(aes(x = Age, y = PlotCount, fill = Gender)) +
+  geom_bar(stat = 'identity') + 
+  labs(title = "Number of patients in each age group") +
+  labs(x = "Age", y = "Number") +
+  scale_y_discrete(labels=abs) + 
+                     ### remove negative values for axis for 'negative' part of chart
+  guides(fill = guide_legend(title="")) +
+  theme(legend.position=c(0.8,0.5)) +
+  coord_flip()
+
+# plotly version of plot
+gp <- p %>%
+  spread(Gender, n) %>% # divide male and female into two different variables
+  mutate(Male = -Male) %>% # change male count into negative for 'left'-side of plot
+  plot_ly(x = ~Female, y = ~Age, type = 'bar',
+          orientation = 'h', name = 'Female') %>%
+  add_trace (x = ~Male, name = 'Male') %>%
+  layout (xaxis = list(title='Number of children in each age group', tickmode = 'array',
+                       tickvals = c(-60, -40, -20, 0, 20, 40, 60),
+                       ticktext = c('60', '40', '20', '0', '20', '40', '60')),
+          yaxis = list(title='Age'),
+          barmode = 'overlay')
+
+print(gp)
+```
