@@ -24,7 +24,8 @@ library(airtabler)
 
 library(tidyverse)
 library(lubridate)
-# data management and time libraries
+# data management
+# time management
 
 library(knitr)
 # reproducible research and markdown library
@@ -67,8 +68,6 @@ RawPatientData <- RawPatientData %>%
 # re-calculate age in years
 RawPatientData <- RawPatientData %>%
   mutate(Age.in.years = as.numeric(as.Date(Data.collection.date)-as.Date(Date.of.birth))/365)
-
-
 
 ```
 
@@ -127,14 +126,14 @@ List and remove
 
 ``` {r}
 
-q <- RawPatientData %>%
+RawPatientData %>%
   filter(as.integer(Age.in.years) <= 0) %>%
   select(Full.name,Date.of.birth,Age.in.years,Gender,Data.collection.date,Form.Grade,Height) %>%
   kable(caption = 'Dubious dates and ages')
 
 # remove dubious data
 
-PatientData <- RawPatientData %>%
+FilteredAgePatientData <- RawPatientData %>%
   filter(as.integer(Age.in.years) > 0)
 
 ```
@@ -142,15 +141,16 @@ PatientData <- RawPatientData %>%
 ``` {r}
 
 # create summary of patients by age and gender (only those aged 18 or below)
-p <- PatientData %>%
+p <- FilteredAgePatientData %>%
   filter(as.integer(Age.in.years)<=18) %>%
   mutate(Age = as.integer(Age.in.years)) %>%
   group_by(Age, Gender) %>%
   summarize(n = n())
 
 TotalPatients <- sum(p$n)
-MedianAge <- median(as.numeric(PatientData$Age.in.years[PatientData$Age.in.years<=18]))
-MeanAge <- mean(as.numeric(PatientData$Age.in.years[PatientData$Age.in.years<=18]))
+
+MedianAge <- with(FilteredAgePatientData,median(as.numeric(Age.in.years[Age.in.years<=18])))
+MeanAge <- with(FilteredAgePatientData,mean(as.numeric(Age.in.years[Age.in.years<=18])))
 
 # ggplot version of plot
 gg <- p %>%
@@ -191,4 +191,115 @@ gp <- p %>%
 gp
 
 ```
+# Clinical Findings
 
+Create a 'flattened' database depending on contents of **Findings**
+
+``` {r}
+
+FilteredAgeFindingsData <- FilteredAgePatientData %>%
+  mutate(CombinedFindings = Map(append,Findings,Findings2)) %>%
+  # Findings were stored in two separate columns
+  mutate(Findings = lapply(CombinedFindings,
+                           function(Finding) as.data.frame(Finding, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(Findings) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(Finding = 
+           RawFindingCodes$Description[match(Finding,as.character(RawFindingCodes$id))])
+
+```
+
+List the most common findings
+
+``` {r}
+
+FilteredAgeFindingsData %>%
+  group_by(Finding) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Findings ranked by frequency')
+
+```
+
+# Dental Findings
+
+``` {r}
+
+FilteredAgeDentalFindingsData <- FilteredAgePatientData %>%
+  mutate(Dental.Finding = lapply(Dental.Finding,
+                           function(Dental.Find) as.data.frame(Dental.Find, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(Dental.Finding) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(Dental.Find = 
+           RawFindingCodes$Description[match(Dental.Find,as.character(RawFindingCodes$id))])
+
+```
+
+List the most common findings
+
+``` {r}
+
+FilteredAgeDentalFindingsData %>%
+  group_by(Dental.Find) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Dental Findings ranked by frequency')
+```
+
+# Management
+
+``` {r}
+
+FilteredAgeManagementData <- FilteredAgePatientData %>%
+  mutate(Management = lapply(Management,
+                           function(Manage) as.data.frame(Manage, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(Management) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(Manage = 
+           RawManagementCodes$Description[match(Manage,as.character(RawManagementCodes$id))])
+
+```
+
+List Management by frequency
+
+``` {r}
+
+FilteredAgeManagementData %>%
+  group_by(Manage) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Management ranked by frequency')
+
+```
+
+``` {r}
+
+FilteredAgeManagementDentalData <- FilteredAgePatientData %>%
+  mutate(DentalMx = lapply(DentalMx,
+                           function(DentalManage) as.data.frame(DentalManage, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(DentalMx) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(DentalManage = 
+           RawManagementCodes$Description[match(DentalManage,as.character(RawManagementCodes$id))])
+
+```
+
+List Dental Management by frequency
+
+``` {r}
+
+FilteredAgeManagementDentalData %>%
+  group_by(DentalManage) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Management ranked by frequency')
+
+```
