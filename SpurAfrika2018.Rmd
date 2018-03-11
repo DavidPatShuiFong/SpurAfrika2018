@@ -1,5 +1,6 @@
 ---
 title: "SpurAfrika2018"
+always_allow_html: yes
 output:
   pdf_document: default
   html_document:
@@ -29,10 +30,6 @@ library(knitr)
 library(ggplot2)
 library(plotly)
 library(webshot)
-
-is_pdf <- try (("pdf_document" %in% rmarkdown::all_output_formats(knitr::current_input())), silent=TRUE)
-is_pdf <- (is_pdf == TRUE)
-
 ```
 
 ``` {r}
@@ -172,6 +169,7 @@ gp <- p %>%
                        # for 'negative' number, change to absolute value
                        ticktext = c('60', '40', '20', '0', '20', '40', '60')),
           yaxis = list(title='Age'),
+          autoziable = T, fillFrame = T,
           barmode = 'overlay',
           title = 'Spur Afrika 2018 clinics - age of children seen',
           annotations = list(list(x = 40, y = 3, showarrow = F,
@@ -179,5 +177,6 @@ gp <- p %>%
                                                '<br>Median age: ', sprintf('%.1f',MedianAge),
                                                '<br>Mean age: ', sprintf('%.1f',MeanAge)))))
 
+gp
 
 ```
