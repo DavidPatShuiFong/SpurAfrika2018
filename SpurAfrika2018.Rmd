@@ -1,10 +1,313 @@
 ---
 title: "SpurAfrika2018"
-output: html_document
+always_allow_html: yes
+output:
+  pdf_document: default
+  html_document:
+    keep_md: yes
+  word_document: default
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(fig.width = 12, fig.height = 8) # larger plot size
 ```
 
-## R Markdown
+# Data import and processing
+
+``` {r results='hide', message=FALSE, warning=FALSE}
+# start necessary libraries
+
+library(airtabler)
+# airtabler required to read airtable database
+# airtabler is installed by 'devtools::install_github("bergant/airtabler")'
+# devtools can fail if the 'unzip' settings has not been set properly
+# it can be set by 'options(unzip="unzip")'
+
+library(tidyverse)
+library(lubridate)
+# data management
+# time management
+
+library(knitr)
+# reproducible research and markdown library
+
+# plotting libraries
+library(ggplot2)
+library(plotly)
+library(webshot)
+```
+
+``` {r}
+# read in data
+ClinicData <- 
+  airtable(
+    base = 'appXwAbxa7r6bkKnO',
+    tables = c('SpurAfrika2018','Schools','FindingCodes','ManagementCodes')
+  )
+
+RawPatientData <- as.tibble(ClinicData$SpurAfrika2018$select_all())
+RawSchoolData <- as.tibble(ClinicData$Schools$select_all())
+RawFindingCodes <- as.tibble(ClinicData$FindingCodes$select_all())
+RawManagementCodes <- as.tibble(ClinicData$ManagementCodes$select_all())
+
+# turn variable names into valid R names e.g. remove spaces
+names(RawPatientData) <- make.names(names(RawPatientData))
+```
+
+## Adjust and re-calculate data
+
+Attach variable **SchoolName** to each student.
+Variable **School.Name** contains the school's database ID
+
+Recalculate **Age.in.years** with **Data.collection.date** and **Date.of.birth**
+
+``` {r}
+# find actual ctual name (instead of the ID)
+RawPatientData <- RawPatientData %>%
+  mutate(SchoolName = RawSchoolData$SchoolName[match(School.Name,RawSchoolData$id)])
+
+# re-calculate age in years
+RawPatientData <- RawPatientData %>%
+  mutate(Age.in.years = as.numeric(as.Date(Data.collection.date)-as.Date(Date.of.birth))/365)
+
+```
+
+## Missing data
+
+Report missing date data (**Date.of.birth** and **Data.collection.date**) and subsequently
+unable to calculate **Age.in.years**.
+
+List patients with missing data.
+
+Summarize patients with missing data by recorded **Form.Grade**.
+
+``` {r}
+
+missing.dob <- sum(is.na(as.Date(RawPatientData$Date.of.birth)))
+missing.dateofcollection <- sum(is.na(as.Date(RawPatientData$Data.collection.date)))
+missing.Age <- sum(is.na(RawPatientData$Age.in.years))
+
+sprintf('Patients with missing Date of Birth: %d', missing.dob)
+sprintf('Patients with missing date of data collection : %d', missing.dateofcollection)
+sprintf('Patients unable to calculate age: %d', missing.Age)
+
+RawPatientData %>%
+  filter(is.na(as.Date(Date.of.birth))) %>%
+  select(Full.name,Date.of.birth,SchoolName,Form.Grade,Height) %>%
+  kable(caption = 'Patients with no recorded Date of Birth')
+
+RawPatientData %>%
+  filter(is.na(as.Date(Date.of.birth))) %>%
+  select(Full.name,Date.of.birth,SchoolName,Form.Grade,Height) %>% 
+  group_by(Form.Grade) %>% 
+  summarize(n=n()) %>%
+  kable(caption = 'Recorded Form.Grade of patients with no recorded Date of Birth')
+
+```
+
+## Average age and **Form.Grade**
+
+Summarize mean age of patients by **Form.Grade**, for patients who have calculated **Age.in.years**
+
+``` {r}
+
+RawPatientData %>%
+  filter(!is.na(as.Date(Date.of.birth))) %>%
+  select(Full.name,Date.of.birth,Age.in.years,SchoolName,Form.Grade,Height) %>%
+  group_by(Form.Grade) %>%
+  summarize(n=n(), MeanAge = mean(Age.in.years, na.rm = TRUE)) %>%
+  kable(caption = 'Mean.Age of patients with calculated age, by Form.Grade')
+
+```
+
+
+## Dubious data
+
+List and remove
+
+``` {r}
+
+RawPatientData %>%
+  filter(as.integer(Age.in.years) <= 0) %>%
+  select(Full.name,Date.of.birth,Age.in.years,Gender,Data.collection.date,Form.Grade,Height) %>%
+  kable(caption = 'Dubious dates and ages')
+
+# remove dubious data
+
+FilteredAgePatientData <- RawPatientData %>%
+  filter(as.integer(Age.in.years) > 0)
+
+```
+
+# Children demographics
+
+``` {r}
+
+# create summary of patients by age and gender (only those aged 18 or below)
+p <- FilteredAgePatientData %>%
+  filter(as.integer(Age.in.years)<=18) %>%
+  mutate(Age = as.integer(Age.in.years)) %>%
+  group_by(Age, Gender) %>%
+  summarize(n = n())
+
+TotalPatients <- sum(p$n)
+
+MedianAge <- with(FilteredAgePatientData,median(as.numeric(Age.in.years[Age.in.years<=18])))
+MeanAge <- with(FilteredAgePatientData,mean(as.numeric(Age.in.years[Age.in.years<=18])))
+
+# ggplot version of plot
+gg <- p %>%
+  mutate(PlotCount = n*ifelse(Gender == 'Female',1,-1)) %>%
+  ggplot(aes(x = Age, y = PlotCount, fill = Gender)) +
+  geom_bar(stat = 'identity') + 
+  labs(title = "Number of patients in each age group") +
+  labs(x = "Age", y = "Number") +
+  scale_y_discrete(labels=abs) + 
+                     ### remove negative values for axis for 'negative' part of chart
+  guides(fill = guide_legend(title="")) +
+  theme(legend.position=c(0.8,0.5)) +
+  coord_flip()
+
+# plotly version of plot
+gp <- p %>%
+  spread(Gender, n) %>% # divide male and female into two different variables
+  mutate(MalePlot = -Male) %>% # negative male count for 'left'-side of plot
+  plot_ly(x = ~Female, y = ~Age, name = 'Female',
+          type = 'bar', orientation = 'h',
+          hoverinfo = 'text', 
+          text = ~paste('Age: ',Age,'years<br>Number :',Female,'<br>Female')) %>%
+  add_trace (x = ~MalePlot, name = 'Male',
+             hoverinfo = 'text', 
+             text = ~paste('Age: ',Age,'years<br>Number :',Male,'<br>Male')) %>%
+  layout (xaxis = list(title='Number of children in each age group', tickmode = 'array',
+                       tickvals = c(-60, -40, -20, 0, 20, 40, 60),
+                       # for 'negative' number, change to absolute value
+                       ticktext = c('60', '40', '20', '0', '20', '40', '60')),
+          yaxis = list(title='Age'),
+          barmode = 'overlay',
+          title = 'Spur Afrika 2018 clinics - age of children seen',
+          annotations = list(list(x = 40, y = 3, showarrow = F,
+                                 text = ~paste('Total children', TotalPatients,
+                                               '<br>Median age: ', sprintf('%.1f',MedianAge),
+                                               '<br>Mean age: ', sprintf('%.1f',MeanAge)))))
+
+gp
+
+```
+
+# Clinical Findings
+
+Create a 'flattened' database depending on contents of **Findings**
+
+``` {r}
+
+FilteredAgeFindingsData <- FilteredAgePatientData %>%
+  mutate(CombinedFindings = Map(append,Findings,Findings2)) %>%
+  # Findings were stored in two separate columns
+  mutate(Findings = lapply(CombinedFindings,
+                           function(Finding) as.data.frame(Finding, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(Findings) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(Finding = 
+           RawFindingCodes$Description[match(Finding,as.character(RawFindingCodes$id))])
+
+```
+
+List the most common findings
+
+``` {r}
+
+FilteredAgeFindingsData %>%
+  group_by(Finding) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Findings ranked by frequency')
+
+```
+
+## Dental Findings
+
+``` {r}
+
+FilteredAgeDentalFindingsData <- FilteredAgePatientData %>%
+  mutate(Dental.Finding = lapply(Dental.Finding,
+                           function(Dental.Find) as.data.frame(Dental.Find, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(Dental.Finding) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(Dental.Find = 
+           RawFindingCodes$Description[match(Dental.Find,as.character(RawFindingCodes$id))])
+
+```
+
+List the most common findings
+
+``` {r}
+
+FilteredAgeDentalFindingsData %>%
+  group_by(Dental.Find) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Dental Findings ranked by frequency')
+```
+
+# Management
+
+``` {r}
+
+FilteredAgeManagementData <- FilteredAgePatientData %>%
+  mutate(Management = lapply(Management,
+                           function(Manage) as.data.frame(Manage, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(Management) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(Manage = 
+           RawManagementCodes$Description[match(Manage,as.character(RawManagementCodes$id))])
+
+```
+
+List Management by frequency
+
+``` {r}
+
+FilteredAgeManagementData %>%
+  group_by(Manage) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Management ranked by frequency')
+
+```
+
+``` {r}
+
+FilteredAgeManagementDentalData <- FilteredAgePatientData %>%
+  mutate(DentalMx = lapply(DentalMx,
+                           function(DentalManage) as.data.frame(DentalManage, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(DentalMx) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(DentalManage = 
+           RawManagementCodes$Description[match(DentalManage,as.character(RawManagementCodes$id))])
+
+```
+
+## Dental management
+
+List Dental Management by frequency
+
+``` {r}
+
+FilteredAgeManagementDentalData %>%
+  group_by(DentalManage) %>%
+  summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  kable(caption = 'Management ranked by frequency')
+
+```
+
