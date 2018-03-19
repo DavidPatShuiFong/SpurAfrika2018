@@ -95,6 +95,8 @@ unique(RawPatientData$Form.Grade)
 Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces
 Change redundant names to correct names
 
+Possibly able to consolidate Grade/Class/Form years further?
+
 ```{r}
 
 CorrectedPatientData <- RawPatientData
@@ -190,6 +192,8 @@ CorrectedPatientData['recyMv0vRHJ33JAZF', 'Data.collection.date'] <- '2018-01-11
 
 # Children demographics
 
+Only plot children with known ages
+
 ``` {r}
 
 # filter out records with dubious age data
@@ -252,11 +256,20 @@ gp
 
 # Clinical Findings
 
+Analyze clinical findings of children (by age **Age.in.years**). If no age is available,
+assume that all patients attending school **Form.grade** are children. 
+
 Create a 'flattened' database depending on contents of **Findings**
 
 ``` {r}
 
-FilteredAgeFindingsData <- FilteredAgePatientData %>%
+ChildPatientData <- CorrectedPatientData %>%
+  filter(Age.in.years <= 18 | grep('grade|class|form',Form.Grade, ignore.case = TRUE))
+
+sprintf('Number of children : %d', nrows(ChildPatientData))
+sprintf('Includes all primary or middle school attendees, even if age not known')
+
+ChildFindingsData <- ChildPatientData %>%
   mutate(CombinedFindings = Map(append,Findings,Findings2)) %>%
   # Findings were stored in two separate columns
   mutate(Findings = lapply(CombinedFindings,
@@ -268,25 +281,21 @@ FilteredAgeFindingsData <- FilteredAgePatientData %>%
   mutate(Finding = 
            RawFindingCodes$Description[match(Finding,as.character(RawFindingCodes$id))])
 
-```
-
-List the most common findings
-
-``` {r}
-
-FilteredAgeFindingsData %>%
+ChildFindingsData %>%
   group_by(Finding) %>%
   summarize(n = n()) %>%
   arrange(desc(n)) %>%
-  kable(caption = 'Findings ranked by frequency')
+  kable(caption = 'Findings in children, ranked by frequency')
 
 ```
 
 ## Dental Findings
 
+List of dental findings in children, by frequency
+
 ``` {r}
 
-FilteredAgeDentalFindingsData <- FilteredAgePatientData %>%
+ChildDentalFindingsData <- ChildPatientData %>%
   mutate(Dental.Finding = lapply(Dental.Finding,
                            function(Dental.Find) as.data.frame(Dental.Find, stringsAsFactors = FALSE))) %>%
   # unnest requires dataframes
@@ -296,24 +305,19 @@ FilteredAgeDentalFindingsData <- FilteredAgePatientData %>%
   mutate(Dental.Find = 
            RawFindingCodes$Description[match(Dental.Find,as.character(RawFindingCodes$id))])
 
-```
-
-List the most common findings
-
-``` {r}
-
-FilteredAgeDentalFindingsData %>%
+ChildDentalFindingsData %>%
   group_by(Dental.Find) %>%
   summarize(n = n()) %>%
   arrange(desc(n)) %>%
-  kable(caption = 'Dental Findings ranked by frequency')
+  kable(caption = 'Dental Findings in children, ranked by frequency')
+
 ```
 
 # Management
 
 ``` {r}
 
-FilteredAgeManagementData <- FilteredAgePatientData %>%
+ChildManagementData <- ChildPatientData %>%
   mutate(Management = lapply(Management,
                            function(Manage) as.data.frame(Manage, stringsAsFactors = FALSE))) %>%
   # unnest requires dataframes
@@ -323,23 +327,18 @@ FilteredAgeManagementData <- FilteredAgePatientData %>%
   mutate(Manage = 
            RawManagementCodes$Description[match(Manage,as.character(RawManagementCodes$id))])
 
-```
-
-List Management by frequency
-
-``` {r}
-
-FilteredAgeManagementData %>%
+ChildAgeManagementData %>%
   group_by(Manage) %>%
   summarize(n = n()) %>%
   arrange(desc(n)) %>%
-  kable(caption = 'Management ranked by frequency')
-
+  kable(caption = 'Management for children, ranked by frequency')
 ```
+
+# Dental management
 
 ``` {r}
 
-FilteredAgeManagementDentalData <- FilteredAgePatientData %>%
+ChildManagementDentalData <- ChildPatientData %>%
   mutate(DentalMx = lapply(DentalMx,
                            function(DentalManage) as.data.frame(DentalManage, stringsAsFactors = FALSE))) %>%
   # unnest requires dataframes
@@ -349,19 +348,11 @@ FilteredAgeManagementDentalData <- FilteredAgePatientData %>%
   mutate(DentalManage = 
            RawManagementCodes$Description[match(DentalManage,as.character(RawManagementCodes$id))])
 
-```
-
-## Dental management
-
-List Dental Management by frequency
-
-``` {r}
-
-FilteredAgeManagementDentalData %>%
+ChildManagementDentalData %>%
   group_by(DentalManage) %>%
   summarize(n = n()) %>%
   arrange(desc(n)) %>%
-  kable(caption = 'Management ranked by frequency')
+  kable(caption = 'Dental Management for children, ranked by frequency')
 
 ```
 
