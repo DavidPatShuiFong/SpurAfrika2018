@@ -281,8 +281,9 @@ ChildFindingsData <- ChildPatientData %>%
   # change to descriptive finding names
   mutate(Finding = 
            RawFindingCodes$Description[match(Finding,as.character(RawFindingCodes$id))]) %>%
-  # capitalize the first letter of each finding
-  mutate(Finding = paste(toupper(substring(Finding,1,1)), substring(Finding,2), sep = ''))
+  # capitalize the first letter of each finding, no capitals elsewhere
+  mutate(Finding = paste(toupper(substring(Finding,1,1)),
+                         tolower(substring(Finding,2)), sep = ''))
 ```
 
 **Clean up Findings Data**
@@ -290,7 +291,7 @@ ChildFindingsData <- ChildPatientData %>%
 List unique finding names
 
 ``` {r}
-sort(unique(ChildFindingsData$Finding))
+print(sort(unique(ChildFindingsData$Finding)))
 ```
 
 Rationalize findings
@@ -298,15 +299,98 @@ Rationalize findings
 ``` {r echo=TRUE}
 ChildFindingsData[ChildFindingsData$Finding == 'Caries',]$Finding <- 'Dental decay'
 ChildFindingsData[ChildFindingsData$Finding == 'Tooth decay',]$Finding <- 'Dental decay'
+ChildFindingsData[ChildFindingsData$Finding == 'Difficulty hearing',]$Finding <- 'Hearing loss'
+
 ```
 
 ``` {r}
+
 ChildFindingsData %>%
   group_by(Finding) %>%
-  summarize(n = n()) %>%
+  dplyr::summarize(n = n()) %>%
   arrange(desc(n)) %>%
   kable(caption = 'Findings in children, ranked by frequency')
 
+```
+
+Plot findings by category
+
+``` {r echo=TRUE}
+
+FindingCategories <- tibble(Category = character(), Finding = character())
+FindingCategories <- FindingCategories %>%
+  add_row(Category = 'Respiratory',
+          Finding = c('Atypical pneumonia', 'Pneumonia', 'Bronchitis',
+                      'Tuberculosis', 'Productive cough', 'Cough',
+                      'Lower respiratory tract infection',
+                      'Upper respiratory tract infection','Dyspnoea',
+                      'Asthma', 'Bronchiectasis')) %>%
+  add_row(Category = 'Cardiovascular',
+          Finding = c('Congenital heart disease', 'Palpitations')) %>%
+  add_row(Category = 'Gastrointestinal',
+          Finding = c('Heartburn', 'Vomiting', 'Rectal bleeding', 'Gastritis',
+                      'Constipation', 'Odynophagia', 'Dysphagia',
+                      'Chronic diarrhoea', 'Diarrhoea', 'Gastro-oesophageal reflux',
+                      'Gastroenteritis', 'Adenitis')) %>%
+  add_row(Category = 'Genito-urinary',
+          Finding = c('Urinary tract infection', 'Pyelonephritis', 'Dysuria',
+                      'Acute cystitis')) %>%
+  add_row(Category = 'Surgical',
+          Finding = c('Burn', 'Discharging wound', 'Wound', 'Abdominal pain',
+                      'Soft-tissue injury', 'Congenital abnormality')) %>%
+  add_row(Category = 'Musculoskeletal',
+          Finding = c('Chest pain : trauma', 'Fracture', 'Knee pain',
+                      'Pleuritic chest pain', 'Chest pain : non-traumatic',
+                      'Chest pain', 'Orthopaedic deformity', 'Joint pain',
+                      'Musculoskeletal pain', 'Back pain', 'Elbow pain')) %>%
+  add_row(Category = 'Allergy',
+          Finding = c('Allergy', 'Environmental irritant', 'Food intolerance')) %>%
+  add_row(Category = 'Gynaecology',
+          Finding = c('Menstruation not yet started', 'Menstrual period missed',
+                      'Sexual development variation', 'Dysmenorrhoea')) %>%
+  add_row(Category = 'Dental',
+          Finding = c('Periodontal infection', 'Dental overcrowding',
+                      'Dental calculus', 'Dental plaque', 'Dental decay',
+                      'Dental pain', 'Oral health poor', 'Gingivitis',
+                      'Caries', 'Jaw and temperomandibular joint pain',
+                      'Bleeding gums', 'Gum pain', 'Tooth broken',
+                      'Tooth loose', 'Tooth hypomineralization',
+                      'Tooth fissures', 'Angular stomatitis')) %>%
+  add_row(Category = 'Dermatology',
+          Finding = c('Pruritus', 'Skin lesion', 'Chronic candidiasis - PV',
+                      'Apthous ulcer', 'Cold Sore', 'Acne', 'Tinea',
+                      'Molluscum contagiosum', 'Thrush-oral', 'Folliculitis', 'Scabies',
+                      'Cellulitis', 'Scar-skin', 'Dermatitis-contact', 'Dermatitis',
+                      'Dry eyelid', 'Eczema', 'Facial blemish')) %>%
+  add_row(Category = 'Non-specific',
+          Finding = c('Fever', 'Unconscious', 'Collapse', 'Unwell', 'Dizziness',
+                      'Weakness', 'Dehydration', 'Food lack', 'Tiredness')) %>%
+  add_row(Category = 'Infectious',
+          Finding = c('Worms', 'Parasitic infection', 'Malaria', 'Amoebiasis',
+                      'Malaria-history of')) %>%
+  add_row(Category = 'Ear-Nose-Throat',
+          Finding = c('Sinusitis-allergic', 'Sinusitis-infective', 'Sinusitis',
+                      'Sore throat', 'Throat pain', 'Tonsillitis', 'Hearing loss',
+                      'Ear wax', 'Ear pain', 'Otitis media-chronic suppurative',
+                      'Otitis media-serous', 'Otitis media-acute', 'Otitis externa',
+                      'Throat dryness', 'Hayfever', 'Epistaxis', 'Rhinitis',
+                      'Dry nasal mucosa')) %>%
+  add_row(Category = 'Opthalmology',
+          Finding = c('Conjunctivitis', 'Lacrimation', 'Conjunctivitis - allergic',
+                      'Corneal abrasion', 'Diplopia', 'Blindness', 'Astigmatism',
+                      'Myopia', 'Eye pain', 'Eye irritation', 'Eye discharge',
+                      'Eyes dry', 'Eyesight poor')) %>%
+  add_row(Category = 'Haematology',
+          Finding = c('Lymphadenopathy-cervical', 'Lymphadenopathy',
+                      'Coagulation disorder')) %>%
+  add_row(Category = 'Psycho-social',
+          Finding = c('Spiritual issue', 'Depression',
+                      'Assault', 'Social situation risk')) %>%
+  add_row(Category = 'Neurology',
+          Finding = c('Headache'))
+  
+ChildFindingsData <- ChildFindingsData %>%
+  left_join(FindingCategories, by = 'Finding')
 ```
 
 ## Dental Findings
@@ -327,7 +411,7 @@ ChildDentalFindingsData <- ChildPatientData %>%
 
 ChildDentalFindingsData %>%
   group_by(Dental.Find) %>%
-  summarize(n = n()) %>%
+  dplyr::summarize(n = n()) %>%
   arrange(desc(n)) %>%
   kable(caption = 'Dental Findings in children, ranked by frequency')
 
@@ -354,7 +438,7 @@ ChildManagementData %>%
   kable(caption = 'Management for children, ranked by frequency')
 ```
 
-# Dental management
+## Dental management
 
 ``` {r}
 
