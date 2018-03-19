@@ -300,6 +300,9 @@ Rationalize findings
 ChildFindingsData[ChildFindingsData$Finding == 'Caries',]$Finding <- 'Dental decay'
 ChildFindingsData[ChildFindingsData$Finding == 'Tooth decay',]$Finding <- 'Dental decay'
 ChildFindingsData[ChildFindingsData$Finding == 'Difficulty hearing',]$Finding <- 'Hearing loss'
+ChildFindingsData[ChildFindingsData$Finding == 'Poor hearing',]$Finding <- 'Hearing loss'
+ChildFindingsData[ChildFindingsData$Finding == 'Itchy eyes',]$Finding <- 'Eye irritation'
+ChildFindingsData[ChildFindingsData$Finding == 'Mittleschmerz pain',]$Finding <- 'Mittelschmerz pain'
 
 ```
 
@@ -324,9 +327,11 @@ FindingCategories <- FindingCategories %>%
                       'Tuberculosis', 'Productive cough', 'Cough',
                       'Lower respiratory tract infection',
                       'Upper respiratory tract infection','Dyspnoea',
-                      'Asthma', 'Bronchiectasis')) %>%
+                      'Asthma', 'Bronchiectasis', 'Rhonchi', 'Runny nose',
+                      'Short of breath', 'Viral illness')) %>%
   add_row(Category = 'Cardiovascular',
-          Finding = c('Congenital heart disease', 'Palpitations')) %>%
+          Finding = c('Congenital heart disease', 'Palpitations',
+                      'Heart murmur', 'Tachycardia', 'Valvular heart disease')) %>%
   add_row(Category = 'Gastrointestinal',
           Finding = c('Heartburn', 'Vomiting', 'Rectal bleeding', 'Gastritis',
                       'Constipation', 'Odynophagia', 'Dysphagia',
@@ -342,52 +347,63 @@ FindingCategories <- FindingCategories %>%
           Finding = c('Chest pain : trauma', 'Fracture', 'Knee pain',
                       'Pleuritic chest pain', 'Chest pain : non-traumatic',
                       'Chest pain', 'Orthopaedic deformity', 'Joint pain',
-                      'Musculoskeletal pain', 'Back pain', 'Elbow pain')) %>%
+                      'Musculoskeletal pain', 'Back pain', 'Elbow pain',
+                      'Foot pain', 'Jaw pain', 'Neck pain', 'Trauma',
+                      'Prosthetic limb', 'Repetivie strain injury')) %>%
   add_row(Category = 'Allergy',
           Finding = c('Allergy', 'Environmental irritant', 'Food intolerance')) %>%
   add_row(Category = 'Gynaecology',
           Finding = c('Menstruation not yet started', 'Menstrual period missed',
-                      'Sexual development variation', 'Dysmenorrhoea')) %>%
-  add_row(Category = 'Dental',
+                      'Sexual development variation', 'Dysmenorrhoea',
+                      'Mittelschmerz pain', 'Pre-menstrual pain')) %>%
+  add_row(Category = 'Oral health',
           Finding = c('Periodontal infection', 'Dental overcrowding',
                       'Dental calculus', 'Dental plaque', 'Dental decay',
                       'Dental pain', 'Oral health poor', 'Gingivitis',
                       'Caries', 'Jaw and temperomandibular joint pain',
                       'Bleeding gums', 'Gum pain', 'Tooth broken',
                       'Tooth loose', 'Tooth hypomineralization',
-                      'Tooth fissures', 'Angular stomatitis')) %>%
+                      'Tooth fissures', 'Angular stomatitis',
+                      'Geographical tongue', 'Gum disease', 'Halitosis',
+                      'Poor oral hygiene', 'Sore tongue', 'Tongue blisters',
+                      'Tooth eruption', 'Toothache', 'Toothache - cold drink or food',
+                      'Toothache - eating')) %>%
   add_row(Category = 'Dermatology',
           Finding = c('Pruritus', 'Skin lesion', 'Chronic candidiasis - PV',
-                      'Apthous ulcer', 'Cold Sore', 'Acne', 'Tinea',
+                      'Apthous ulcer', 'Cold Sore', 'Acne', 'Tinea', 'Tinea capitis',
                       'Molluscum contagiosum', 'Thrush-oral', 'Folliculitis', 'Scabies',
                       'Cellulitis', 'Scar-skin', 'Dermatitis-contact', 'Dermatitis',
-                      'Dry eyelid', 'Eczema', 'Facial blemish')) %>%
+                      'Dry eyelid', 'Eczema', 'Facial blemish',
+                      'Rash')) %>%
   add_row(Category = 'Non-specific',
           Finding = c('Fever', 'Unconscious', 'Collapse', 'Unwell', 'Dizziness',
-                      'Weakness', 'Dehydration', 'Food lack', 'Tiredness')) %>%
+                      'Weakness', 'Dehydration', 'Food lack', 'Tiredness', 'Nausea',
+                      'Syncope')) %>%
   add_row(Category = 'Infectious',
           Finding = c('Worms', 'Parasitic infection', 'Malaria', 'Amoebiasis',
                       'Malaria-history of')) %>%
   add_row(Category = 'Ear-Nose-Throat',
           Finding = c('Sinusitis-allergic', 'Sinusitis-infective', 'Sinusitis',
                       'Sore throat', 'Throat pain', 'Tonsillitis', 'Hearing loss',
-                      'Ear wax', 'Ear pain', 'Otitis media-chronic suppurative',
-                      'Otitis media-serous', 'Otitis media-acute', 'Otitis externa',
+                      'Ear wax', 'Ear pain', 'Otitis media - chronic suppurative',
+                      'Otitis media-serous', 'Otitis media - acute', 'Otitis externa',
                       'Throat dryness', 'Hayfever', 'Epistaxis', 'Rhinitis',
-                      'Dry nasal mucosa')) %>%
+                      'Dry nasal mucosa', 'Foreign body in ear',
+                      'Nose bridge pain')) %>%
   add_row(Category = 'Opthalmology',
           Finding = c('Conjunctivitis', 'Lacrimation', 'Conjunctivitis - allergic',
                       'Corneal abrasion', 'Diplopia', 'Blindness', 'Astigmatism',
                       'Myopia', 'Eye pain', 'Eye irritation', 'Eye discharge',
-                      'Eyes dry', 'Eyesight poor')) %>%
+                      'Eyes dry', 'Eyesight poor', 'Iritis', 'Photophobia',
+                      'Strabismus')) %>%
   add_row(Category = 'Haematology',
-          Finding = c('Lymphadenopathy-cervical', 'Lymphadenopathy',
-                      'Coagulation disorder')) %>%
-  add_row(Category = 'Psycho-social',
+          Finding = c('Lymphadenopathy - cervical', 'Lymphadenopathy',
+                      'Coagulation disorder', 'Iron-deficiency anaemia')) %>%
+  add_row(Category = 'Social spiritual psychological',
           Finding = c('Spiritual issue', 'Depression',
-                      'Assault', 'Social situation risk')) %>%
+                      'Assault', 'Social situation risk', 'Hunger pains')) %>%
   add_row(Category = 'Neurology',
-          Finding = c('Headache'))
+          Finding = c('Headache', 'Tension headache'))
   
 ChildFindingsData <- ChildFindingsData %>%
   left_join(FindingCategories, by = 'Finding')
