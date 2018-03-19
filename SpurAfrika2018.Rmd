@@ -2,9 +2,9 @@
 title: "SpurAfrika2018"
 always_allow_html: yes
 output:
-  pdf_document: default
   html_document:
     keep_md: yes
+  pdf_document: default
   word_document: default
 ---
 
@@ -406,8 +406,25 @@ FindingCategories <- FindingCategories %>%
           Finding = c('Headache', 'Tension headache'))
   
 ChildFindingsData <- ChildFindingsData %>%
-  left_join(FindingCategories, by = 'Finding')
+  left_join(FindingCategories, by = 'Finding') %>%
+  rename(Finding.Category = Category)
 
+```
+
+
+``` {r}
+ChildFindingsData %>%
+  filter(Finding != 'No complaints') %>%
+  group_by(Finding.Category, Finding) %>%
+  summarize(Count = n()) %>%
+  plot_ly(y = ~Finding.Category, x = ~Count, type = 'bar',
+          name = ~Finding, color = ~Finding,
+          hoverinfo = 'text',
+          text = ~paste(Finding.Category, '<br>', Finding, '<br>Count: ', Count)) %>%
+  layout(barmode = 'stack', orientation = 'h', showlegend = FALSE,
+         title = 'Number of children seen with each category of finding
+         Spur Afrika Clinic, January 2018',
+         yaxis = list(title = ''), margin = list(l=200, t=75))
 ```
 
 ## Dental Findings
