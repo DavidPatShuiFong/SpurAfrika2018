@@ -8,10 +8,21 @@ output:
   word_document: default
 ---
 
-```{r setup, include=FALSE}
+``` {r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(fig.width = 12, fig.height = 8) # larger plot size
 ```
+
+``` {r}
+# Settings for created output files 
+# e.g. whether to show processing code, and which variables to show
+# depending on confidentiality
+
+show.id <- c('Full.name', 'Date.of.birth')
+# 'identifying' alternative is 'Full.name', 'Date.of.birth'
+# 'non-identifying' alternative is 'id'
+
+``` 
 
 # Data import and processing
 
@@ -63,7 +74,7 @@ Variable **School.Name** contains the school's database ID
 Recalculate **Age.in.years** with **Data.collection.date** and **Date.of.birth**
 
 ``` {r}
-# find actual ctual name (instead of the ID)
+# find actual school name (instead of the ID)
 RawPatientData <- RawPatientData %>%
   mutate(SchoolName = RawSchoolData$SchoolName[match(School.Name,RawSchoolData$id)])
 
@@ -73,7 +84,31 @@ RawPatientData <- RawPatientData %>%
 
 ```
 
-## Missing data
+## Missing data and harmonising data
+
+List unique **Form.Grade** names 
+
+``` {r}
+unique(RawPatientData$Form.Grade)
+```
+
+Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces
+Change redundant names to correct names
+
+```{r}
+
+CorrectedPatientData <- RawPatientData
+  
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Baby ' & !is.na(Form.Grade)),]$Form.Grade <- 'Baby'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 4 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 4'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 2 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 2'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 6 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 6'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 8 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 8'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 4 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 4'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 5 20080120' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 5'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 5 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 5'
+
+```
 
 Report missing date data (**Date.of.birth** and **Data.collection.date**) and subsequently
 unable to calculate **Age.in.years**.
@@ -94,12 +129,12 @@ sprintf('Patients unable to calculate age: %d', missing.Age)
 
 RawPatientData %>%
   filter(is.na(as.Date(Date.of.birth))) %>%
-  select(Full.name,Date.of.birth,SchoolName,Form.Grade,Height) %>%
+  select(show.id, SchoolName, Form.Grade, Height) %>%
   kable(caption = 'Patients with no recorded Date of Birth')
 
 RawPatientData %>%
   filter(is.na(as.Date(Date.of.birth))) %>%
-  select(Full.name,Date.of.birth,SchoolName,Form.Grade,Height) %>% 
+  select(show.id, SchoolName, Form.Grade, Height) %>% 
   group_by(Form.Grade) %>% 
   summarize(n=n()) %>%
   kable(caption = 'Recorded Form.Grade of patients with no recorded Date of Birth')
@@ -114,7 +149,7 @@ Summarize mean age of patients by **Form.Grade**, for patients who have calculat
 
 RawPatientData %>%
   filter(!is.na(as.Date(Date.of.birth))) %>%
-  select(Full.name,Date.of.birth,Age.in.years,SchoolName,Form.Grade,Height) %>%
+  select(show.id, Gender, Age.in.years, SchoolName, Form.Grade,Height) %>%
   group_by(Form.Grade) %>%
   summarize(n=n(), MeanAge = mean(Age.in.years, na.rm = TRUE)) %>%
   kable(caption = 'Mean.Age of patients with calculated age, by Form.Grade')
@@ -130,12 +165,27 @@ List and remove
 
 RawPatientData %>%
   filter(as.integer(Age.in.years) <= 0) %>%
-  select(Full.name,Date.of.birth,Age.in.years,Gender,Data.collection.date,Form.Grade,Height) %>%
+  select(show.id, Age.in.years, Gender, Data.collection.date, Form.Grade, Height) %>%
   kable(caption = 'Dubious dates and ages')
+
+# create 'corrected' version of data
+
+rownames(CorrectedPatientData) <- CorrectedPatientData$id
+
+# correct dates which have been swapped or entered into wrong column
+# in many cases, the Data.collection.date was set to the Date.of.birth
+CorrectedPatientData['recAtRcqyfpMuLF5r', 'Data.collection.date'] <- '2018-01-05'
+CorrectedPatientData['recLsoktJir05A6Sp', 'Data.collection.date'] <- '2018-01-11'
+CorrectedPatientData['recNNUJ3D0HbVCy7P', 'Data.collection.date'] <- '2018-01-11'
+CorrectedPatientData['recR7eMWKtI2ShfOp', 'Data.collection.date'] <- '2018-01-11'
+CorrectedPatientData['recWqX7skBGuBxg5O', 'Date.of.birth'] <- '2015-11-14'
+CorrectedPatientData['recWqX7skBGuBxg5O', 'Data.collection.date'] <- '2018-01-11'
+CorrectedPatientData['recyMv0vRHJ33JAZF', 'Data.collection.date'] <- '2018-01-11'
 
 # remove dubious data
 
-FilteredAgePatientData <- RawPatientData %>%
+FilteredAgePatientData <- CorrectedPatientData %>%
+  mutate(Age.in.years = as.numeric(as.Date(Data.collection.date)-as.Date(Date.of.birth))/365) %>%
   filter(as.integer(Age.in.years) > 0)
 
 ```
