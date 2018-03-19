@@ -93,7 +93,7 @@ unique(RawPatientData$Form.Grade)
 ```
 
 Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces
-Change redundant names to correct names
+Change redundant names to correct names, creating new dataframe **CorrectedPatientData**
 
 Possibly able to consolidate Grade/Class/Form years further?
 
@@ -174,7 +174,7 @@ CorrectedPatientData %>%
 
 Age data corrected where simple and correctible errors have been made
 
-``` {r}
+``` {r warning=FALSE}
 # create 'corrected' version of age data
 
 rownames(CorrectedPatientData) <- CorrectedPatientData$id
@@ -257,16 +257,17 @@ gp
 # Clinical Findings
 
 Analyze clinical findings of children (by age **Age.in.years**). If no age is available,
-assume that all patients attending school **Form.grade** are children. 
+assume that all patients attending school **Form.grade** are children. Store in **ChildPatientData**
 
-Create a 'flattened' database depending on contents of **Findings**
+Create a 'flattened' database **ChildFindingsData**, flattening the contents of **Findings**
 
 ``` {r}
 
 ChildPatientData <- CorrectedPatientData %>%
-  filter(Age.in.years <= 18 | grep('grade|class|form',Form.Grade, ignore.case = TRUE))
+  # either age 18 years or less, or recorded to be attending primary/middle school
+  filter((Age.in.years <= 18) | (grepl('grade|class|form',Form.Grade, ignore.case = TRUE)))
 
-sprintf('Number of children : %d', nrows(ChildPatientData))
+sprintf('Number of children : %d', nrow(ChildPatientData))
 sprintf('Includes all primary or middle school attendees, even if age not known')
 
 ChildFindingsData <- ChildPatientData %>%
@@ -279,8 +280,27 @@ ChildFindingsData <- ChildPatientData %>%
   # each finding has its own row, so an individual patient will be listed multiple times
   # change to descriptive finding names
   mutate(Finding = 
-           RawFindingCodes$Description[match(Finding,as.character(RawFindingCodes$id))])
+           RawFindingCodes$Description[match(Finding,as.character(RawFindingCodes$id))]) %>%
+  # capitalize the first letter of each finding
+  mutate(Finding = paste(toupper(substring(Finding,1,1)), substring(Finding,2), sep = ''))
+```
 
+**Clean up Findings Data**
+
+List unique finding names
+
+``` {r}
+sort(unique(ChildFindingsData$Finding))
+```
+
+Rationalize findings
+
+``` {r echo=TRUE}
+ChildFindingsData[ChildFindingsData$Finding == 'Caries',]$Finding <- 'Dental decay'
+ChildFindingsData[ChildFindingsData$Finding == 'Tooth decay',]$Finding <- 'Dental decay'
+```
+
+``` {r}
 ChildFindingsData %>%
   group_by(Finding) %>%
   summarize(n = n()) %>%
@@ -327,7 +347,7 @@ ChildManagementData <- ChildPatientData %>%
   mutate(Manage = 
            RawManagementCodes$Description[match(Manage,as.character(RawManagementCodes$id))])
 
-ChildAgeManagementData %>%
+ChildManagementData %>%
   group_by(Manage) %>%
   summarize(n = n()) %>%
   arrange(desc(n)) %>%
