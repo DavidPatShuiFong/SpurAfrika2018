@@ -197,10 +197,11 @@ Only plot children with known ages
 ``` {r}
 
 # filter out records with dubious age data
+# and only include people with age less than or equal to 18 years
 
 FilteredAgePatientData <- CorrectedPatientData %>%
   mutate(Age.in.years = as.numeric(as.Date(Data.collection.date)-as.Date(Date.of.birth))/365) %>%
-  filter(as.integer(Age.in.years) > 0)
+  filter(as.integer(Age.in.years) > 0 & as.integer(Age.in.years) <=18 )
 
 # create summary of patients by age and gender (only those aged 18 or below)
 p <- FilteredAgePatientData %>%
@@ -253,6 +254,26 @@ gp <- p %>%
 gp
 
 ```
+
+## Body Mass Index (BMI) vs Age Plot
+
+Some outliers apparent in BMI, likely secondary to inaccurate weight and height data
+
+``` {r}
+FilteredAgePatientData %>%
+  # need both height and weight to calculate body mass index (BMI)
+  filter(!is.na(Height) & !is.na(Weight)) %>%
+  # calculate BMI, which is weight divided by the square of the height
+  # weight is in kilogrammes, height is in metres
+  mutate(bmi = Weight/((Height/100)^2)) %>%
+  plot_ly(x = ~Age.in.years, y = ~bmi, color = ~Gender,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>BMI : ', sprintf('%.1f', bmi))) %>%
+  layout(title = 'Body Mass Index (BMI) of children vs Age
+         Spur Afrika Clinic, January 2018')
+  
+``` 
 
 # Clinical Findings
 
