@@ -119,20 +119,20 @@ Summarize patients with missing data by recorded **Form.Grade**.
 
 ``` {r}
 
-missing.dob <- sum(is.na(as.Date(RawPatientData$Date.of.birth)))
-missing.dateofcollection <- sum(is.na(as.Date(RawPatientData$Data.collection.date)))
-missing.Age <- sum(is.na(RawPatientData$Age.in.years))
+missing.dob <- sum(is.na(as.Date(CorrectedPatientData$Date.of.birth)))
+missing.dateofcollection <- sum(is.na(as.Date(CorrectedPatientData$Data.collection.date)))
+missing.Age <- sum(is.na(CorrectedPatientData$Age.in.years))
 
 sprintf('Patients with missing Date of Birth: %d', missing.dob)
 sprintf('Patients with missing date of data collection : %d', missing.dateofcollection)
 sprintf('Patients unable to calculate age: %d', missing.Age)
 
-RawPatientData %>%
+CorrectedPatientData %>%
   filter(is.na(as.Date(Date.of.birth))) %>%
   select(show.id, SchoolName, Form.Grade, Height) %>%
   kable(caption = 'Patients with no recorded Date of Birth')
 
-RawPatientData %>%
+CorrectedPatientData %>%
   filter(is.na(as.Date(Date.of.birth))) %>%
   select(show.id, SchoolName, Form.Grade, Height) %>% 
   group_by(Form.Grade) %>% 
@@ -147,7 +147,7 @@ Summarize mean age of patients by **Form.Grade**, for patients who have calculat
 
 ``` {r}
 
-RawPatientData %>%
+CorrectedPatientData %>%
   filter(!is.na(as.Date(Date.of.birth))) %>%
   select(show.id, Gender, Age.in.years, SchoolName, Form.Grade,Height) %>%
   group_by(Form.Grade) %>%
@@ -157,18 +157,23 @@ RawPatientData %>%
 ```
 
 
-## Dubious data
+## Dubious age data
 
-List and remove
+List records with unlikely age data (age 0 or less)
 
 ``` {r}
 
-RawPatientData %>%
+CorrectedPatientData %>%
   filter(as.integer(Age.in.years) <= 0) %>%
   select(show.id, Age.in.years, Gender, Data.collection.date, Form.Grade, Height) %>%
   kable(caption = 'Dubious dates and ages')
 
-# create 'corrected' version of data
+```
+
+Age data corrected where simple and correctible errors have been made
+
+``` {r}
+# create 'corrected' version of age data
 
 rownames(CorrectedPatientData) <- CorrectedPatientData$id
 
@@ -181,18 +186,17 @@ CorrectedPatientData['recR7eMWKtI2ShfOp', 'Data.collection.date'] <- '2018-01-11
 CorrectedPatientData['recWqX7skBGuBxg5O', 'Date.of.birth'] <- '2015-11-14'
 CorrectedPatientData['recWqX7skBGuBxg5O', 'Data.collection.date'] <- '2018-01-11'
 CorrectedPatientData['recyMv0vRHJ33JAZF', 'Data.collection.date'] <- '2018-01-11'
-
-# remove dubious data
-
-FilteredAgePatientData <- CorrectedPatientData %>%
-  mutate(Age.in.years = as.numeric(as.Date(Data.collection.date)-as.Date(Date.of.birth))/365) %>%
-  filter(as.integer(Age.in.years) > 0)
-
 ```
 
 # Children demographics
 
 ``` {r}
+
+# filter out records with dubious age data
+
+FilteredAgePatientData <- CorrectedPatientData %>%
+  mutate(Age.in.years = as.numeric(as.Date(Data.collection.date)-as.Date(Date.of.birth))/365) %>%
+  filter(as.integer(Age.in.years) > 0)
 
 # create summary of patients by age and gender (only those aged 18 or below)
 p <- FilteredAgePatientData %>%
