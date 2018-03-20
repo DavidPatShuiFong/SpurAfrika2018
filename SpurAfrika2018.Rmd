@@ -2,9 +2,9 @@
 title: "SpurAfrika2018"
 always_allow_html: yes
 output:
+  pdf_document: default
   html_document:
     keep_md: yes
-  pdf_document: default
   word_document: default
 ---
 
@@ -351,7 +351,7 @@ ChildFindingsData <- ChildPatientData %>%
                          tolower(substring(Finding,2)), sep = ''))
 ```
 
-**Clean up Findings Data**
+## Clean up Findings Data
 
 List unique finding names
 
@@ -359,7 +359,7 @@ List unique finding names
 print(sort(unique(ChildFindingsData$Finding)))
 ```
 
-Rationalize findings
+### Rationalize findings
 
 ``` {r echo=TRUE}
 ChildFindingsData[ChildFindingsData$Finding == 'Caries',]$Finding <- 'Dental decay'
@@ -506,17 +506,37 @@ ChildDentalFindingsData <- ChildPatientData %>%
   # each finding has its own row, so an individual patient will be listed multiple times
   # change to descriptive finding names
   mutate(Dental.Find = 
-           RawFindingCodes$Description[match(Dental.Find,as.character(RawFindingCodes$id))])
+           RawFindingCodes$Description[match(Dental.Find,as.character(RawFindingCodes$id))]) %>%
+  filter(!is.na(Dental.Find))
 
 ChildDentalFindingsData %>%
   group_by(Dental.Find) %>%
-  dplyr::summarize(n = n()) %>%
+  summarise(n = n()) %>%
   arrange(desc(n)) %>%
   kable(caption = 'Dental Findings in children, ranked by frequency')
 
 ```
 
+``` {r}
+
+ChildDentalFindingsData %>%
+  group_by(Dental.Find) %>%
+  dplyr::summarize(n = n()) %>%
+  arrange(desc(n)) %>%
+  filter(!(Dental.Find %in% c('No caries', 'Good oral hygiene', 'No complaints'))) %>%
+  plot_ly(labels = ~Dental.Find, values = ~n, type = 'pie',
+          textposition = 'inside',
+          textinfo = 'label+value') %>%
+  layout(title = "Dental Findings
+         Spur Afrika January 2018 clinic", margin = list(t = 75))
+
+```
+
 # Management
+
+Analyze management of children in **ChildPatientData**
+
+Create a 'flattened' database **ChildManagementData**, flattening the contents of **Manage**
 
 ``` {r}
 
@@ -525,16 +545,126 @@ ChildManagementData <- ChildPatientData %>%
                            function(Manage) as.data.frame(Manage, stringsAsFactors = FALSE))) %>%
   # unnest requires dataframes
   unnest(Management) %>% 
-  # each finding has its own row, so an individual patient will be listed multiple times
-  # change to descriptive finding names
+  # each management has its own row, so an individual patient will be listed multiple times
+  # change to descriptive management names
   mutate(Manage = 
            RawManagementCodes$Description[match(Manage,as.character(RawManagementCodes$id))])
+```
 
+## Clean up Management Data
+
+List unique management names
+
+``` {r}
+print(sort(unique(ChildManagementData$Manage)))
+```
+
+### Rationalize management
+
+``` {r echo=TRUE}
+ChildManagementData[ChildManagementData$Manage == 'F/U Dr in 3/7 for stool sample and ABx if ongoing diarrhoea',]$Manage <-
+  'Doctor review'
+ChildManagementData[ChildManagementData$Manage == 'GP Follow-up',]$Manage <- 'Doctor review'
+ChildManagementData[ChildManagementData$Manage == 'GP follow-up PRN',]$Manage <- 'Doctor review'
+ChildManagementData[ChildManagementData$Manage == 'Ventolin',]$Manage <- 'Salbutamol inhaler (Ventolin)'
+ChildManagementData[ChildManagementData$Manage == 'X-ray',]$Manage <- 'Radiology - XR'
+
+```
+
+``` {r}
 ChildManagementData %>%
   group_by(Manage) %>%
   summarize(n = n()) %>%
   arrange(desc(n)) %>%
   kable(caption = 'Management for children, ranked by frequency')
+```
+
+### Management Categories
+
+Add *Management.Category* to *ChildManagementData*
+
+``` {r echo=TRUE}
+
+ManageCategories <- tibble(Category = character(), Manage = character())
+ManageCategories <- ManageCategories %>%
+  add_row(Category = 'Oral anti-infective',
+          Manage = c('Amoxycillin', 'Cephalexin', 'Griseofulvin oral',
+                     'Ketoconazole oral', 'Metronidazole', 'Flucloxacillin',
+                     'Antimalarials', 'Doxycycline', 'Albendazole', 'Nystatin oral',
+                     'Antibiotics', 'Terbinafine')) %>%
+  add_row(Category = 'Topical cream',
+          Manage = c('Clotrimazole cream (clotrimoxazole)', 'Clotrimazole/betamethasone cream',
+                     'Clotrimazole/beclothemasone/gentamicin cream (bulkot mixi cream)',
+                     'Benzoyl benzoate topical', 'Antifungal cream', 'Iodine wash',
+                     'Facial cleanser hypoallergenic', 'Moisturiser topical', 'Vaseline topical',
+                     'Topical cream', 'Hydrocortisone cream', 'Permethrin')) %>%
+  add_row(Category = 'Simple analgesia',
+          Manage = c('Paracetamol oral', 'Ibuprofen oral')) %>%
+  add_row(Category = 'Systemic steroids',
+          Manage = c('Prednisolone oral')) %>%
+  add_row(Category = 'Asthma medication',
+          Manage = c('Salbutamol inhaler (Ventolin)', 'Salbutamol syrup', 'Fluticasone inhaler',
+                     'Spacer device for metered-dose-inhaler')) %>%
+  add_row(Category = 'Topical ocular',
+          Manage = c('Gentamicin eye drops', 'Dexamethasone eye drops',
+                     'Chloromycetin eye drops', 'Dexamethasone/gentamicin (Dexagenta) eye drops',
+                     'Ocular lubricant topical', 'Sunglasses', 'Spectacle frames supplied',
+                     'Hydrocortisone eye drops')) %>%
+  add_row(Category = 'Topical otic',
+          Manage = c('Ear drops (not otherwise specified)', 'Antibiotic ear drops',
+                     'Ciprofloxacin ear drops', 'Ear cleaning',
+                     'Otorex (Paradichlorobenzene, Benzocaine, Chlorbuto')) %>%
+  add_row(Category = 'Gastrointestinal',
+          Manage = c('Antacid oral', 'H2 antagonist', 'Proton pump inhibitor',
+                     "Laxatives, aperients", 'Buscopan', 'Metoclopramide',
+                     'Ondansetron')) %>%
+  add_row(Category = 'Allergy',
+          Manage = c('Antihistamine oral', 'Cetirizine')) %>%
+  add_row(Category = 'Instruction',
+          Manage = c('Hand hygiene education', 'Water intake increase', 'Fibre intake increase',
+                     'Dietary advice', 'Education - epistaxis', 'Physical therapy',
+                     'Dental hygiene encouragement', 'Oral hygiene demo', 'Oral intake increase',
+                     'Postural adjustment', 'Brush teeth', 'Back exercises',
+                     'Food preparation advice', 'Salt water gargle', 'Wash eyes')) %>%
+  add_row(Category = 'Investigation',
+          Manage = c('Stool analysis', 'Helicobacter pylori testing', 'Sputum for acid fast bacilli',
+                     'Radiology - XR','Radiology - CT', 'Typhoid test', 'Malaria test',
+                     'Urine culture', 'Ultrasound', 'Coagulation profile', 'Echo',
+                     'Full blood count', 'MRI')) %>%
+  add_row(Category = 'Rehydration',
+          Manage = c('Oral rehydration')) %>%
+  add_row(Category = 'Immunisation',
+          Manage = c('Immunisation - tetanus', 'Immunisation review')) %>%
+  add_row(Category = 'Oral supplement',
+          Manage = c('Iron folate syrup (Hifer)', 'Iron supplement', 'Vitamin C oral',
+                     'Vitamin B12 syrup', 'Folic acid', 'Multivitamin')) %>%
+  add_row(Category = 'Dental',
+          Manage = c('Extraction', 'Filling', 'Scaling', 'Mouthwash')) %>%
+  add_row(Category = 'Review',
+          Manage = c('Eye review', 'Doctor review', 'Dental review', 'Social review',
+                     'Optometrist review', 'Physiotherapy review', 'Counselling or psychology review',
+                     'ENT or audiology', 'Speech therapy', 'Follow-Up', 'Specialist Follow-up')) %>%
+  add_row(Category = 'Wound care',
+          Manage = c('Wound dressing', 'Cyst removal', 'Elbow support', 'Irritant removal'))
+  
+ChildManagementData <- ChildManagementData %>%
+  left_join(ManageCategories, by = 'Manage') %>%
+  rename(Management.Category = Category)
+
+```
+
+``` {r}
+ChildManagementData %>%
+  group_by(Management.Category, Manage) %>%
+  summarize(Count = n()) %>%
+  plot_ly(y = ~Management.Category, x = ~Count, type = 'bar',
+          name = ~Manage, color = ~Manage,
+          hoverinfo = 'text',
+          text = ~paste(Management.Category, '<br>', Manage, '<br>Count: ', Count)) %>%
+  layout(barmode = 'stack', orientation = 'h', showlegend = FALSE,
+         title = 'Number of children seen with each category of management
+         Spur Afrika Clinic, January 2018',
+         yaxis = list(title = ''), margin = list(l=200, t=75))
 ```
 
 ## Dental management
@@ -549,7 +679,8 @@ ChildManagementDentalData <- ChildPatientData %>%
   # each finding has its own row, so an individual patient will be listed multiple times
   # change to descriptive finding names
   mutate(DentalManage = 
-           RawManagementCodes$Description[match(DentalManage,as.character(RawManagementCodes$id))])
+           RawManagementCodes$Description[match(DentalManage,as.character(RawManagementCodes$id))]) %>%
+  filter(!is.na(DentalManage))
 
 ChildManagementDentalData %>%
   group_by(DentalManage) %>%
