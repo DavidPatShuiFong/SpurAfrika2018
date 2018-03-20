@@ -1,10 +1,12 @@
 ---
 title: "SpurAfrika2018"
+author: David Fong
+date: March 21, 2018
 always_allow_html: yes
 output:
+  pdf_document: default
   html_document:
     keep_md: yes
-  pdf_document: default
   word_document: default
 ---
 
@@ -13,7 +15,7 @@ output:
 Summary statistics and Exploratory analysis of Spur Afrika Clinic activity in Kibera, January 2018.
 
 ``` {r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 knitr::opts_chunk$set(fig.width = 11, fig.height = 8) # larger plot size
 ```
 
@@ -22,7 +24,7 @@ knitr::opts_chunk$set(fig.width = 11, fig.height = 8) # larger plot size
 # e.g. whether to show processing code, and which variables to show
 # depending on confidentiality
 
-show.id <- c('id')
+show.id <- c('Full.name','Date.of.birth')
 # 'identifying' alternative is 'Full.name', 'Date.of.birth'
 # 'non-identifying' alternative is 'id'
 
@@ -52,7 +54,7 @@ library(knitr)
 # plotting libraries
 library(ggplot2)
 library(plotly)
-library(RcolorBrewer)
+library(RColorBrewer)
 library(webshot)
 ```
 
@@ -189,7 +191,7 @@ CorrectedPatientData %>%
 
 Age data corrected where simple and correctible errors have been made
 
-``` {r warning=FALSE}
+``` {r warning=FALSE, echo=TRUE}
 # create 'corrected' version of age data
 
 rownames(CorrectedPatientData) <- CorrectedPatientData$id
@@ -325,7 +327,9 @@ p <- FilteredAgePatientData %>%
           text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
                         '<br>BMI : ', sprintf('%.1f', bmi))) %>%
   layout(title = 'Body Mass Index (BMI) of children vs Age
-         Spur Afrika Clinic, January 2018')
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years'),
+         yaxis = list(title = 'Body mass index (kg/m<sup>2</sup>)'))
 
 suppressWarnings(p)
   
