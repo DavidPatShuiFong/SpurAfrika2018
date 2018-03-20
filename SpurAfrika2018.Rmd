@@ -10,11 +10,11 @@ output:
 
 #Synopsis
 
-Age-pyramid, Body-Mass-Index, Finding and Management statistics of Spur Afrika Clinic in Kibera, January 2018.
+Summary statistics and Exploratory analysis of Spur Afrika Clinic activity in Kibera, January 2018.
 
 ``` {r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(fig.width = 12, fig.height = 8) # larger plot size
+knitr::opts_chunk$set(fig.width = 11, fig.height = 8) # larger plot size
 ```
 
 ``` {r}
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(fig.width = 12, fig.height = 8) # larger plot size
 # e.g. whether to show processing code, and which variables to show
 # depending on confidentiality
 
-show.id <- c('Full.name', 'Date.of.birth')
+show.id <- c('id')
 # 'identifying' alternative is 'Full.name', 'Date.of.birth'
 # 'non-identifying' alternative is 'id'
 
@@ -52,6 +52,7 @@ library(knitr)
 # plotting libraries
 library(ggplot2)
 library(plotly)
+library(RcolorBrewer)
 library(webshot)
 ```
 
@@ -104,7 +105,8 @@ List unique **Form.Grade** names
 unique(RawPatientData$Form.Grade)
 ```
 
-Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces
+Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces.
+
 Change redundant names to correct names, creating new dataframe **CorrectedPatientData**
 
 Possibly able to consolidate Grade/Class/Form years further?
@@ -144,7 +146,8 @@ sprintf('Patients unable to calculate age: %d', missing.Age)
 CorrectedPatientData %>%
   filter(is.na(as.Date(Date.of.birth))) %>%
   select(show.id, SchoolName, Form.Grade, Height) %>%
-  kable(caption = 'Patients with no recorded Date of Birth')
+  head() %>% # there are lots of patients without date of birth data
+  kable(caption = '(shortened list of) Patients with no recorded Date of Birth')
 
 CorrectedPatientData %>%
   filter(is.na(as.Date(Date.of.birth))) %>%
@@ -207,7 +210,7 @@ CorrectedPatientData['recyMv0vRHJ33JAZF', 'Data.collection.date'] <- '2018-01-11
 Boxplot of height data.
 Remove some unlikely height recordings.
 
-``` {r echo = TRUE}
+``` {r echo = TRUE, warning = FALSE}
 
 # some impossible or unlikely heights
 CorrectedPatientData['recQBdegQTVTI1vql', 'Height'] <- NA 
@@ -217,8 +220,11 @@ CorrectedPatientData['recZcyQJKTRz5ldph', 'Height'] <- NA
 CorrectedPatientData['receHuzCheQwGEzAv', 'Height'] <- NA 
 # contact above had a height recording of 71 cm, weight 20 kg, age 7 years, male
 
-CorrectedPatientData %>%
+p <- CorrectedPatientData %>%
+  filter(!is.na(Height)) %>%
   plot_ly(y = ~Height, color = ~Gender, type = "box")
+
+suppressWarnings(p) # necessary, because ColorBrewer complains that minimum 3 colours required
 
 ```
 
@@ -227,18 +233,21 @@ CorrectedPatientData %>%
 Boxplot of weight recordings.
 No weight recordings appear extremely unlikely on first inspection
 
-``` {r echo = TRUE}
+``` {r echo = TRUE, warning = FALSE}
 
-CorrectedPatientData %>%
+p <- CorrectedPatientData %>%
+  filter(!is.na(Weight)) %>%
   plot_ly(y = ~Weight, color = ~Gender, type = "box")
+
+suppressWarnings(p) # necessary, because ColorBrewer complains that 3 colours are the minimum
 
 ```
 
 # Children demographics
 
-Only plot children with known ages
+Age-gender plot of children with known ages.
 
-``` {r}
+``` {r warning = FALSE}
 
 # filter out records with dubious age data
 # and only include people with age less than or equal to 18 years
@@ -301,21 +310,24 @@ gp
 
 ## Body Mass Index (BMI) vs Age Plot
 
-Some outliers apparent in BMI, likely secondary to inaccurate weight and height data
+Some outliers apparent in BMI, likely secondary to inaccurate weight and height data.
 
-``` {r}
-FilteredAgePatientData %>%
+``` {r warning=FALSE}
+p <- FilteredAgePatientData %>%
   # need both height and weight to calculate body mass index (BMI)
   filter(!is.na(Height) & !is.na(Weight)) %>%
   # calculate BMI, which is weight divided by the square of the height
   # weight is in kilogrammes, height is in metres
   mutate(bmi = Weight/((Height/100)^2)) %>%
   plot_ly(x = ~Age.in.years, y = ~bmi, color = ~Gender,
+          type = 'scatter', mode = 'markers',
           hoverinfo = 'text',
           text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
                         '<br>BMI : ', sprintf('%.1f', bmi))) %>%
   layout(title = 'Body Mass Index (BMI) of children vs Age
          Spur Afrika Clinic, January 2018')
+
+suppressWarnings(p)
   
 ``` 
 
@@ -477,20 +489,28 @@ ChildFindingsData <- ChildFindingsData %>%
 ```
 
 
-``` {r}
-ChildFindingsData %>%
+``` {r warning=FALSE}
+
+getPalette <- colorRampPalette(brewer.pal(8,'Set1')) # custom palette
+colourCount <- length(unique(ChildFindingsData$Finding))-1
+
+p <- ChildFindingsData %>%
   filter(Finding != 'No complaints') %>%
   group_by(Finding.Category, Finding) %>%
   summarize(Count = n()) %>%
   arrange(Finding.Category) %>%
   plot_ly(y = ~Finding.Category, x = ~Count, type = 'bar',
           name = ~Finding, color = ~Finding,
+          marker = list(color = getPalette(colourCount)),
           hoverinfo = 'text',
           text = ~paste(Finding.Category, '<br>', Finding, '<br>Count: ', Count)) %>%
   layout(barmode = 'stack', orientation = 'h', showlegend = FALSE,
          title = 'Number of children seen with each category of finding
          Spur Afrika Clinic, January 2018',
          yaxis = list(title = ''), margin = list(l=200, t=75))
+
+suppressWarnings(p)
+
 ```
 
 ## Dental Findings
@@ -654,8 +674,9 @@ ChildManagementData <- ChildManagementData %>%
 
 ```
 
-``` {r}
-ChildManagementData %>%
+``` {r warning=FALSE}
+
+p <- ChildManagementData %>%
   group_by(Management.Category, Manage) %>%
   summarize(Count = n()) %>%
   arrange(Management.Category) %>%
@@ -667,6 +688,8 @@ ChildManagementData %>%
          title = 'Number of children seen with each category of management
          Spur Afrika Clinic, January 2018',
          yaxis = list(title = ''), margin = list(l=200, t=75))
+
+suppressWarnings(p)
 ```
 
 ## Dental management
