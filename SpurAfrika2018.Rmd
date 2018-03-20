@@ -8,6 +8,10 @@ output:
   word_document: default
 ---
 
+#Synopsis
+
+Age-pyramid, Body-Mass-Index, Finding and Management statistics of Spur Afrika Clinic in Kibera, January 2018.
+
 ``` {r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 knitr::opts_chunk$set(fig.width = 12, fig.height = 8) # larger plot size
@@ -25,6 +29,8 @@ show.id <- c('Full.name', 'Date.of.birth')
 ``` 
 
 # Data import and processing
+
+Data imported from Airtable, 'cloud database'
 
 ``` {r results='hide', message=FALSE, warning=FALSE}
 # start necessary libraries
@@ -48,6 +54,12 @@ library(ggplot2)
 library(plotly)
 library(webshot)
 ```
+
+Patient data stored in **RawPatientData**. Information in **RawPatientData** is coded, the coding is contained in other tables as follows:
+
+* School name data stored in **RawSchoolData**
+* Finding/diagnosis codes stored in **RawFindingCodes**
+* Management/treatment codes stored in *RawManagementCodes**
 
 ``` {r}
 # read in data
