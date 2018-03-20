@@ -202,6 +202,38 @@ CorrectedPatientData['recWqX7skBGuBxg5O', 'Data.collection.date'] <- '2018-01-11
 CorrectedPatientData['recyMv0vRHJ33JAZF', 'Data.collection.date'] <- '2018-01-11'
 ```
 
+## Height data
+
+Boxplot of height data.
+Remove some unlikely height recordings.
+
+``` {r echo = TRUE}
+
+# some impossible or unlikely heights
+CorrectedPatientData['recQBdegQTVTI1vql', 'Height'] <- NA 
+# contact above had a height recording of 1236 cm
+CorrectedPatientData['recZcyQJKTRz5ldph', 'Height'] <- NA 
+# contact above had a height recording of 77 cm, weight 23 kg, age 7 years, female
+CorrectedPatientData['receHuzCheQwGEzAv', 'Height'] <- NA 
+# contact above had a height recording of 71 cm, weight 20 kg, age 7 years, male
+
+CorrectedPatientData %>%
+  plot_ly(y = ~Height, color = ~Gender, type = "box")
+
+```
+
+## Weight data
+
+Boxplot of weight recordings.
+No weight recordings appear extremely unlikely on first inspection
+
+``` {r echo = TRUE}
+
+CorrectedPatientData %>%
+  plot_ly(y = ~Weight, color = ~Gender, type = "box")
+
+```
+
 # Children demographics
 
 Only plot children with known ages
