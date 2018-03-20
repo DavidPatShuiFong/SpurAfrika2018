@@ -2,9 +2,9 @@
 title: "SpurAfrika2018"
 always_allow_html: yes
 output:
-  pdf_document: default
   html_document:
     keep_md: yes
+  pdf_document: default
   word_document: default
 ---
 
@@ -482,6 +482,7 @@ ChildFindingsData %>%
   filter(Finding != 'No complaints') %>%
   group_by(Finding.Category, Finding) %>%
   summarize(Count = n()) %>%
+  arrange(Finding.Category) %>%
   plot_ly(y = ~Finding.Category, x = ~Count, type = 'bar',
           name = ~Finding, color = ~Finding,
           hoverinfo = 'text',
@@ -657,6 +658,7 @@ ChildManagementData <- ChildManagementData %>%
 ChildManagementData %>%
   group_by(Management.Category, Manage) %>%
   summarize(Count = n()) %>%
+  arrange(Management.Category) %>%
   plot_ly(y = ~Management.Category, x = ~Count, type = 'bar',
           name = ~Manage, color = ~Manage,
           hoverinfo = 'text',
