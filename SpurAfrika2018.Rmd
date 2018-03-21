@@ -4,19 +4,24 @@ author: David Fong
 date: March 21, 2018
 always_allow_html: yes
 output:
+  ioslides_presentation
   pdf_document: default
   html_document:
     keep_md: yes
   word_document: default
 ---
 
-#Synopsis
+# Synopsis
 
 Summary statistics and Exploratory analysis of Spur Afrika Clinic activity in Kibera, January 2018.
 
 ``` {r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)
-knitr::opts_chunk$set(fig.width = 11, fig.height = 8) # larger plot size
+# knitr::opts_chunk$set(fig.width = 7, fig.height = 7) # plot size
+
+modifying_code_echo = FALSE # echo code that modifies data?
+print_tables = 'hide'
+
 ```
 
 ``` {r}
@@ -31,6 +36,10 @@ show.id <- c('Full.name','Date.of.birth')
 ``` 
 
 # Data import and processing
+
+Data collected by Spur Afrika medical team, local Kenyan
+medical staff and Australian guests, working in 
+Kibera, Nairobi, Kenya.
 
 Data imported from Airtable, 'cloud database'
 
@@ -58,13 +67,14 @@ library(RColorBrewer)
 library(webshot)
 ```
 
-Patient data stored in **RawPatientData**. Information in **RawPatientData** is coded, the coding is contained in other tables as follows:
-
-* School name data stored in **RawSchoolData**
-* Finding/diagnosis codes stored in **RawFindingCodes**
-* Management/treatment codes stored in *RawManagementCodes**
 
 ``` {r}
+# Patient data stored in **RawPatientData**. Information in **RawPatientData** is coded, the coding is contained in other tables as follows:
+
+## School name data stored in **RawSchoolData**
+## Finding/diagnosis codes stored in **RawFindingCodes**
+## Management/treatment codes stored in *RawManagementCodes**
+
 # read in data
 ClinicData <- 
   airtable(
@@ -81,14 +91,13 @@ RawManagementCodes <- as.tibble(ClinicData$ManagementCodes$select_all())
 names(RawPatientData) <- make.names(names(RawPatientData))
 ```
 
+``` {r}
 ## Adjust and re-calculate data
 
-Attach variable **SchoolName** to each student.
-Variable **School.Name** contains the school's database ID
+# Attach variable **SchoolName** to each student.
+# Variable **School.Name** contains the school's database ID
+# Recalculate **Age.in.years** with **Data.collection.date** and **Date.of.birth**
 
-Recalculate **Age.in.years** with **Data.collection.date** and **Date.of.birth**
-
-``` {r}
 # find actual school name (instead of the ID)
 RawPatientData <- RawPatientData %>%
   mutate(SchoolName = RawSchoolData$SchoolName[match(School.Name,RawSchoolData$id)])
@@ -101,19 +110,17 @@ RawPatientData <- RawPatientData %>%
 
 ## Missing data and harmonising data
 
-List unique **Form.Grade** names 
-
-``` {r}
+``` {r results=print_tables}
+print('List unique **Form.Grade**')
 unique(RawPatientData$Form.Grade)
 ```
 
-Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces.
-
-Change redundant names to correct names, creating new dataframe **CorrectedPatientData**
-
-Possibly able to consolidate Grade/Class/Form years further?
+Redundant grade names consolidated
 
 ```{r}
+# Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces.
+# Change redundant names to correct names, creating new dataframe **CorrectedPatientData**
+# Possibly able to consolidate Grade/Class/Form years further?
 
 CorrectedPatientData <- RawPatientData
   
@@ -128,14 +135,11 @@ CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 5 ' & !is.na
 
 ```
 
-Report missing date data (**Date.of.birth** and **Data.collection.date**) and subsequently
-unable to calculate **Age.in.years**.
+``` {r results=print_tables}
 
-List patients with missing data.
-
-Summarize patients with missing data by recorded **Form.Grade**.
-
-``` {r}
+print ('Report missing date data (**Date.of.birth** and **Data.collection.date**) and subsequently unable to calculate **Age.in.years**.')
+print ('List patients with missing data.')
+print ('Summarize patients with missing data by recorded **Form.Grade**.')
 
 missing.dob <- sum(is.na(as.Date(CorrectedPatientData$Date.of.birth)))
 missing.dateofcollection <- sum(is.na(as.Date(CorrectedPatientData$Data.collection.date)))
@@ -162,25 +166,33 @@ CorrectedPatientData %>%
 
 ## Average age and **Form.Grade**
 
-Summarize mean age of patients by **Form.Grade**, for patients who have calculated **Age.in.years**
+``` {r fig.align='center', warning=FALSE}
+# Summarize mean age of patients by **Form.Grade**, for patients who have calculated **Age.in.years**
 
-``` {r}
-
-CorrectedPatientData %>%
+p <- CorrectedPatientData %>%
   filter(!is.na(as.Date(Date.of.birth))) %>%
   select(show.id, Gender, Age.in.years, SchoolName, Form.Grade,Height) %>%
   group_by(Form.Grade) %>%
   summarize(n=n(), MeanAge = mean(Age.in.years, na.rm = TRUE)) %>%
-  kable(caption = 'Mean.Age of patients with calculated age, by Form.Grade')
+  plot_ly(x = ~Form.Grade, y = ~MeanAge, type = 'bar',
+          hoverinfo = 'text',
+          text = ~paste('Grade: ', Form.Grade, '<br>Mean: ', MeanAge, ' years','<br>Number :' ,n)) %>%
+  layout(title = 'Average age in each school year',
+         xaxis = list(title = 'Grade'),
+         yaxis = list(title = 'Mean age (in years)'),
+         margin = list(b = 75))
+  # kable(caption = 'Mean.Age of patients with calculated age, by Form.Grade')
+
+suppressWarnings(p)
 
 ```
 
 
 ## Dubious age data
 
-List records with unlikely age data (age 0 or less)
+``` {r results=print_tables}
 
-``` {r}
+print('List records with unlikely age data (age 0 or less')
 
 CorrectedPatientData %>%
   filter(as.integer(Age.in.years) <= 0) %>%
@@ -191,7 +203,7 @@ CorrectedPatientData %>%
 
 Age data corrected where simple and correctible errors have been made
 
-``` {r warning=FALSE, echo=TRUE}
+``` {r warning=FALSE, echo=modifying_code_echo}
 # create 'corrected' version of age data
 
 rownames(CorrectedPatientData) <- CorrectedPatientData$id
@@ -209,10 +221,9 @@ CorrectedPatientData['recyMv0vRHJ33JAZF', 'Data.collection.date'] <- '2018-01-11
 
 ## Height data
 
-Boxplot of height data.
-Remove some unlikely height recordings.
 
-``` {r echo = TRUE, warning = FALSE}
+``` {r warning=FALSE, echo=modifying_code_echo}
+# Remove some unlikely height recordings.
 
 # some impossible or unlikely heights
 CorrectedPatientData['recQBdegQTVTI1vql', 'Height'] <- NA 
@@ -224,7 +235,9 @@ CorrectedPatientData['receHuzCheQwGEzAv', 'Height'] <- NA
 
 p <- CorrectedPatientData %>%
   filter(!is.na(Height)) %>%
-  plot_ly(y = ~Height, color = ~Gender, type = "box")
+  plot_ly(y = ~Height, color = ~Gender, type = "box") %>%
+  layout (title = 'Recorded heights, unlikely data removed',
+          yaxis = list(title = 'Height (cm)'))
 
 suppressWarnings(p) # necessary, because ColorBrewer complains that minimum 3 colours required
 
@@ -232,14 +245,15 @@ suppressWarnings(p) # necessary, because ColorBrewer complains that minimum 3 co
 
 ## Weight data
 
-Boxplot of weight recordings.
-No weight recordings appear extremely unlikely on first inspection
-
-``` {r echo = TRUE, warning = FALSE}
+``` {r warning=FALSE}
+# Boxplot of weight recordings.
+# No weight recordings appear extremely unlikely on first inspection
 
 p <- CorrectedPatientData %>%
   filter(!is.na(Weight)) %>%
-  plot_ly(y = ~Weight, color = ~Gender, type = "box")
+  plot_ly(y = ~Weight, color = ~Gender, type = "box") %>%
+  layout(title = 'Recorded weights',
+         yaxis = list(title = 'Weight (kg)'))
 
 suppressWarnings(p) # necessary, because ColorBrewer complains that 3 colours are the minimum
 
@@ -247,9 +261,9 @@ suppressWarnings(p) # necessary, because ColorBrewer complains that 3 colours ar
 
 # Children demographics
 
-Age-gender plot of children with known ages.
+## Age-Sex pyramid
 
-``` {r warning = FALSE}
+``` {r warning=FALSE}
 
 # filter out records with dubious age data
 # and only include people with age less than or equal to 18 years
@@ -312,9 +326,11 @@ gp
 
 ## Body Mass Index (BMI) vs Age Plot
 
-Some outliers apparent in BMI, likely secondary to inaccurate weight and height data.
+Some unlikely outliers remain in this data
 
 ``` {r warning=FALSE}
+# Some outliers apparent in BMI, likely secondary to inaccurate weight and height data.
+
 p <- FilteredAgePatientData %>%
   # need both height and weight to calculate body mass index (BMI)
   filter(!is.na(Height) & !is.na(Weight)) %>%
@@ -338,11 +354,11 @@ suppressWarnings(p)
 # Clinical Findings
 
 Analyze clinical findings of children (by age **Age.in.years**). If no age is available,
-assume that all patients attending school **Form.grade** are children. Store in **ChildPatientData**
+assume that all patients attending school **Form.grade** are children.
 
-Create a 'flattened' database **ChildFindingsData**, flattening the contents of **Findings**
-
-``` {r}
+``` {r results=print_tables}
+# Child patient data stored in **ChildPatientData**
+# Create a 'flattened' database **ChildFindingsData**, flattening the contents of **Findings**
 
 ChildPatientData <- CorrectedPatientData %>%
   # either age 18 years or less, or recorded to be attending primary/middle school
@@ -369,15 +385,15 @@ ChildFindingsData <- ChildPatientData %>%
 
 ## Clean up Findings Data
 
-List unique finding names
+Finding types rationalized
 
-``` {r}
+``` {r results=print_tables}
+print('List of unique finding names')
 print(sort(unique(ChildFindingsData$Finding)))
 ```
 
-### Rationalize findings
-
-``` {r echo=TRUE}
+``` {r echo=modifying_code_echo}
+# 'rationalize' some finding names
 ChildFindingsData[ChildFindingsData$Finding == 'Caries',]$Finding <- 'Dental decay'
 ChildFindingsData[ChildFindingsData$Finding == 'Tooth decay',]$Finding <- 'Dental decay'
 ChildFindingsData[ChildFindingsData$Finding == 'Difficulty hearing',]$Finding <- 'Hearing loss'
@@ -387,7 +403,7 @@ ChildFindingsData[ChildFindingsData$Finding == 'Mittleschmerz pain',]$Finding <-
 
 ```
 
-``` {r}
+``` {r results=print_tables}
 
 ChildFindingsData %>%
   group_by(Finding) %>%
@@ -397,9 +413,9 @@ ChildFindingsData %>%
 
 ```
 
-Plot findings by category
+## Findings by category
 
-``` {r echo=TRUE}
+``` {r echo=modifying_code_echo}
 
 FindingCategories <- tibble(Category = character(), Finding = character())
 FindingCategories <- FindingCategories %>%
@@ -492,7 +508,6 @@ ChildFindingsData <- ChildFindingsData %>%
 
 ```
 
-
 ``` {r warning=FALSE}
 
 getPalette <- colorRampPalette(brewer.pal(8,'Set1')) # custom palette
@@ -519,9 +534,7 @@ suppressWarnings(p)
 
 ## Dental Findings
 
-List of dental findings in children, by frequency
-
-``` {r}
+``` {r results=print_tables}
 
 ChildDentalFindingsData <- ChildPatientData %>%
   mutate(Dental.Finding = lapply(Dental.Finding,
@@ -561,9 +574,8 @@ ChildDentalFindingsData %>%
 
 Analyze management of children in **ChildPatientData**
 
-Create a 'flattened' database **ChildManagementData**, flattening the contents of **Manage**
-
 ``` {r}
+# Create a 'flattened' database **ChildManagementData**, flattening the contents of **Manage**
 
 ChildManagementData <- ChildPatientData %>%
   mutate(Management = lapply(Management,
@@ -578,15 +590,14 @@ ChildManagementData <- ChildPatientData %>%
 
 ## Clean up Management Data
 
-List unique management names
-
-``` {r}
+``` {r results=print_tables}
+print('List unique management names')
 print(sort(unique(ChildManagementData$Manage)))
 ```
 
-### Rationalize management
+Management names rationalized
 
-``` {r echo=TRUE}
+``` {r echo=modifying_code_echo}
 ChildManagementData[ChildManagementData$Manage == 'F/U Dr in 3/7 for stool sample and ABx if ongoing diarrhoea',]$Manage <-
   'Doctor review'
 ChildManagementData[ChildManagementData$Manage == 'GP Follow-up',]$Manage <- 'Doctor review'
@@ -596,7 +607,7 @@ ChildManagementData[ChildManagementData$Manage == 'X-ray',]$Manage <- 'Radiology
 
 ```
 
-``` {r}
+``` {r results=print_tables}
 ChildManagementData %>%
   group_by(Manage) %>%
   summarize(n = n()) %>%
@@ -604,11 +615,10 @@ ChildManagementData %>%
   kable(caption = 'Management for children, ranked by frequency')
 ```
 
-### Management Categories
+## Management by Category
 
-Add *Management.Category* to *ChildManagementData*
-
-``` {r echo=TRUE}
+``` {r echo=modifying_code_echo}
+# Add *Management.Category* to *ChildManagementData*
 
 ManageCategories <- tibble(Category = character(), Manage = character())
 ManageCategories <- ManageCategories %>%
@@ -718,4 +728,3 @@ ChildManagementDentalData %>%
   kable(caption = 'Dental Management for children, ranked by frequency')
 
 ```
-
