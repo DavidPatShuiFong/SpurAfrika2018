@@ -233,6 +233,13 @@ CorrectedPatientData['recZcyQJKTRz5ldph', 'Height'] <- NA
 # contact above had a height recording of 77 cm, weight 23 kg, age 7 years, female
 CorrectedPatientData['receHuzCheQwGEzAv', 'Height'] <- NA 
 # contact above had a height recording of 71 cm, weight 20 kg, age 7 years, male
+CorrectedPatientData['recdQJEnAkpwFJoXO', 'Height'] <- NA 
+# contact above had a height recording of 98 cm, weight 28 kg, age 10 years, female
+CorrectedPatientData['recqtBsxk3BTILa85', 'Height'] <- NA 
+# contact above had a height recording of 166 cm, weight 18 kg, age 6 years, female
+CorrectedPatientData['recdQJEnAkpwFJoXO', 'Height'] <- NA
+# contact above had a height recording of 98 cm, weight 28 kg, age 10 years, female
+
 
 p <- CorrectedPatientData %>%
   filter(!is.na(Height)) %>%
@@ -342,7 +349,8 @@ p <- FilteredAgePatientData %>%
           type = 'scatter', mode = 'markers',
           hoverinfo = 'text',
           text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
-                        '<br>BMI : ', sprintf('%.1f', bmi))) %>%
+                        '<br>BMI : ', sprintf('%.1f', bmi),
+                        '<br>ID :',id)) %>%
   layout(title = 'Body Mass Index (BMI) of children vs Age
          Spur Afrika Clinic, January 2018',
          xaxis = list(title = 'Age in years'),
