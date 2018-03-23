@@ -93,6 +93,12 @@ names(RawPatientData) <- make.names(names(RawPatientData))
 ```
 
 ``` {r}
+# read in Stature, Weight and BMI percentile calculation charts
+StatForAgeF <- as.tibble(read.csv('StatForAgeF.csv'))
+StatForAgeM <- as.tibble(read.csv('StatForAgeM.csv'))
+```
+
+``` {r}
 ## Adjust and re-calculate data
 
 # Attach variable **SchoolName** to each student.
@@ -240,7 +246,6 @@ CorrectedPatientData['recqtBsxk3BTILa85', 'Height'] <- NA
 CorrectedPatientData['recdQJEnAkpwFJoXO', 'Height'] <- NA
 # contact above had a height recording of 98 cm, weight 28 kg, age 10 years, female
 
-
 p <- CorrectedPatientData %>%
   filter(!is.na(Height)) %>%
   plot_ly(y = ~Height, color = ~Gender, type = "box") %>%
@@ -278,6 +283,7 @@ suppressWarnings(p) # necessary, because ColorBrewer complains that 3 colours ar
 
 FilteredAgePatientData <- CorrectedPatientData %>%
   mutate(Age.in.years = as.numeric(as.Date(Data.collection.date)-as.Date(Date.of.birth))/365) %>%
+    mutate(Age.in.months = as.numeric(Age.in.years*12)) %>%
   filter(as.integer(Age.in.years) > 0 & as.integer(Age.in.years) <=18 )
 
 # create summary of patients by age and gender (only those aged 18 or below)
@@ -332,9 +338,19 @@ gp
 
 ```
 
-## Body Mass Index (BMI) vs Age Plot
+## Height vs Age Plot
 
-Some unlikely outliers remain in this data
+``` {r}
+
+FilteredAgePatientData <- FilteredAgePatientData %>%
+  mutate(L1Age = lapply(Age.in.months,
+                        function(months)))
+FilteredAgePatientData$L1Age <- 
+
+```
+
+
+## Body Mass Index (BMI) vs Age Plot
 
 ``` {r warning=FALSE}
 # Some outliers apparent in BMI, likely secondary to inaccurate weight and height data.
