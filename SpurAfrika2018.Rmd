@@ -408,6 +408,150 @@ FilteredAgePatientData <- FilteredAgePatientData %>%
 ```
 
 ``` {r}
+# Height (cm) vs Age (years), Female and Male Charts
+
+# calculate Loess smoother with uncertainty bounds for recorded heights
+mf <- loess(Height ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Height) & FilteredAgePatientData$Gender == 'Female',])
+mm <- loess(Height ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Height) & FilteredAgePatientData$Gender == 'Male',])
+# minimum/maximum rows of StatForAge rows required for plotting
+minmax_rows <- min(FilteredAgePatientData$StatForAgeRows):max(FilteredAgePatientData$StatForAgeRows)
+
+p1 <- FilteredAgePatientData %>%
+  filter(!is.na(Height) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~Height,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Height :', sprintf('%.1f', Height),
+                        '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>Height-% : ', sprintf('%.0f', Pstat*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Height ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P3,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '3rd centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('3rd centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P25,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '25th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('25th centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P50,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = '50th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('50th centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P75,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '75th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('75th centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P97,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '97th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('97th centile')) %>%
+  layout(title = 'Height (cm) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Female)'),
+         yaxis = list(title = 'Height (cm)'))
+
+p2 <- FilteredAgePatientData %>%
+  filter(!is.na(Height) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~Height,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Height :', sprintf('%.1f', Height),
+                        '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>Height-% : ', sprintf('%.0f', Pstat*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Height ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P3,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '3rd centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('3rd centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P25,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '25th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('25th centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P50,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = '50th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('50th centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P75,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '75th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('75th centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P97,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '97th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('97th centile')) %>%
+  layout(title = 'Height (cm) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Male)'),
+         yaxis = list(title = 'Height (cm)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
+
+
+```
+
+``` {r}
 
 # calculate Loess smoother with uncertainty bounds
 mf <- loess(Zstat ~ Age.in.years,
