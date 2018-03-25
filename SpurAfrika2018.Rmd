@@ -4,12 +4,11 @@ author: David Fong
 date: March 21, 2018
 always_allow_html: yes
 output:
-  ioslides_presentation
-  pdf_document: default
+#  ioslides_presentation
   html_document:
     keep_md: yes
+  pdf_document: default
   word_document: default
-
 ---
 
 # Synopsis
@@ -58,6 +57,9 @@ library(lubridate)
 # data management
 # time management
 
+library(broom)
+# converts statistic analysis objects into tidy dataframes
+
 library(knitr)
 # reproducible research and markdown library
 
@@ -94,8 +96,8 @@ names(RawPatientData) <- make.names(names(RawPatientData))
 
 ``` {r}
 # read in Stature, Weight and BMI percentile calculation charts
-StatForAgeF <- as.tibble(read.csv('StatForAgeF.csv'))
-StatForAgeM <- as.tibble(read.csv('StatForAgeM.csv'))
+StatForAge <- list(Female =as.tibble(read.csv('StatForAgeF.csv')),
+                   Male = as.tibble(read.csv('StatForAgeM.csv')))
 ```
 
 ``` {r}
@@ -127,18 +129,28 @@ Redundant grade names consolidated
 ```{r}
 # Many 'unique' **Form.Grade** names are redundant, e.g. trailing spaces.
 # Change redundant names to correct names, creating new dataframe **CorrectedPatientData**
-# Possibly able to consolidate Grade/Class/Form years further?
+# A comparison of mean ages in 'Class X' with 'Grade X' revealed almost identical mean ages and progression in ages
+# -> merge 'Class X' to 'Grade X'
 
 CorrectedPatientData <- RawPatientData
   
 CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Baby ' & !is.na(Form.Grade)),]$Form.Grade <- 'Baby'
-CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 4 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 4'
-CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 2 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 2'
-CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 6 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 6'
-CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 8 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Class 8'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 1' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 1'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 2' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 2'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 2 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 2'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 3' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 3'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 4' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 4'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 4 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 4'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 4' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 4'
 CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 4 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 4'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 5' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 5'
 CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 5 20080120' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 5'
 CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 5 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 5'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 6' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 6'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Grade 6 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 6'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 7' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 7'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 8' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 8'
+CorrectedPatientData[with(CorrectedPatientData,Form.Grade == 'Class 8 ' & !is.na(Form.Grade)),]$Form.Grade <- 'Grade 8'
 
 ```
 
@@ -224,6 +236,16 @@ CorrectedPatientData['recR7eMWKtI2ShfOp', 'Data.collection.date'] <- '2018-01-11
 CorrectedPatientData['recWqX7skBGuBxg5O', 'Date.of.birth'] <- '2015-11-14'
 CorrectedPatientData['recWqX7skBGuBxg5O', 'Data.collection.date'] <- '2018-01-11'
 CorrectedPatientData['recyMv0vRHJ33JAZF', 'Data.collection.date'] <- '2018-01-11'
+
+# remove some unlikely dates of birth
+CorrectedPatientData['recWqX7skBGuBxg5O', 'Date.of.birth'] <- NA
+# born 2015-11-14, but in 2018 already 29 kg and 145 cm tall, and Grade 7
+CorrectedPatientData['recfCemBktJieY9tO', 'Date.of.birth'] <- NA
+# born 2016-01-31, but in 2018 already 35 kg and 148 cm tall, and Grade 6
+CorrectedPatientData['recvU9arOYkcoBw7H', 'Date.of.birth'] <- NA
+# born 2015-01-01, but in 2018 already 40 kg and 151 cm tall, and Class 4
+
+
 ```
 
 ## Height data
@@ -343,9 +365,111 @@ gp
 ``` {r}
 
 FilteredAgePatientData <- FilteredAgePatientData %>%
-  mutate(L1Age = lapply(Age.in.months,
-                        function(months)))
-FilteredAgePatientData$L1Age <- 
+  # StatForAgeRow refers to the row number in the StatForAge[[Gender]]
+  mutate(StatForAgeRows = mapply(function(months, gender) {
+    as.numeric(cut(months, StatForAge[[gender]]$StatForAge, include.lowest = TRUE, right = FALSE))
+    },
+    Age.in.months, Gender)) %>%
+  mutate(Lstat = mapply(function(row, gender, months) {
+    l <- StatForAge[[gender]][row,'L']
+    # interpolate between the 'L' value for the 'month below' and the 'month above'
+    l <- l + 
+      ((months - StatForAge[[gender]][row,'StatForAge']) / 
+         (StatForAge[[gender]][row+1,'StatForAge'] - StatForAge[[gender]][row,'StatForAge'])) *
+      (StatForAge[[gender]][row+1,'L'] - StatForAge[[gender]][row,'L'])
+    return (l)
+    },
+    StatForAgeRows, Gender, Age.in.months)) %>%
+  mutate(Mstat = mapply(function(row, gender, months) {
+    m <- StatForAge[[gender]][row,'M']
+    # interpolate between the 'M' value for the 'month below' and the 'month above'
+    m <- m + 
+      ((months - StatForAge[[gender]][row,'StatForAge']) / 
+         (StatForAge[[gender]][row+1,'StatForAge'] - StatForAge[[gender]][row,'StatForAge'])) *
+      (StatForAge[[gender]][row+1,'M'] - StatForAge[[gender]][row,'M'])
+    return (m)
+    },
+    StatForAgeRows, Gender, Age.in.months)) %>%
+  mutate(Sstat = mapply(function(row, gender, months) {
+    s <- StatForAge[[gender]][row,'S']
+    # interpolate between the 'S' value for the 'month below' and the 'month above'
+    s <- s + 
+      ((months - StatForAge[[gender]][row,'StatForAge']) / 
+         (StatForAge[[gender]][row+1,'StatForAge'] - StatForAge[[gender]][row,'StatForAge'])) *
+      (StatForAge[[gender]][row+1,'S'] - StatForAge[[gender]][row,'S'])
+    return (s)
+    },
+    StatForAgeRows, Gender, Age.in.months)) %>%
+  # Z-score
+  mutate(Zstat = ((Height/as.numeric(Mstat))^as.numeric(Lstat)-1)/(as.numeric(Lstat) * as.numeric(Sstat))) %>%
+  # percentile
+  mutate(Pstat = pnorm(Zstat))
+
+```
+
+``` {r}
+
+# calculate Loess smoother with uncertainty bounds
+mf <- loess(Zstat ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Height) & FilteredAgePatientData$Gender == 'Female',])
+mm <- loess(Zstat ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Height) & FilteredAgePatientData$Gender == 'Male',])
+
+p1 <- FilteredAgePatientData %>%
+  filter(!is.na(Height) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~Zstat,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Height :', sprintf('%.1f', Height),
+                        '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Zstat ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  layout(title = 'Height (z-score) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years'),
+         yaxis = list(title = 'Height (z-score)'))
+
+p2 <- FilteredAgePatientData %>%
+  filter(!is.na(Height) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~Zstat,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Height :', sprintf('%.1f', Height),
+                        '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Zstat ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>% 
+  layout(title = 'Height (z-score) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years'),
+         yaxis = list(title = 'Height (z-score)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
 
 ```
 
