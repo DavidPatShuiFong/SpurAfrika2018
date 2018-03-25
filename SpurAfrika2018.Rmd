@@ -427,6 +427,7 @@ p1 <- FilteredAgePatientData %>%
           text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
                         '<br>Height :', sprintf('%.1f', Height),
                         '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>Height-% : ', sprintf('%.0f', Pstat*100),
                         '<br>ID :',id)) %>%
   add_lines(y = ~fitted(loess(Zstat ~ Age.in.years)),
             line = list(color = 'rgba(7,164,181,1)'),
@@ -452,6 +453,7 @@ p2 <- FilteredAgePatientData %>%
           text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
                         '<br>Height :', sprintf('%.1f', Height),
                         '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>Height-% : ', sprintf('%.0f', Pstat*100),
                         '<br>ID :',id)) %>%
   add_lines(y = ~fitted(loess(Zstat ~ Age.in.years)),
             line = list(color = 'rgba(7,164,181,1)'),
