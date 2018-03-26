@@ -4,7 +4,7 @@ author: "David Fong"
 date: "March 26, 2018"
 output:
   html_document:
-    df_print: paged
+    keep_md: yes
 always_allow_html: yes
 
 ---
