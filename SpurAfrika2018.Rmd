@@ -374,7 +374,7 @@ gp
 
 ```
 
-## Height vs Age Plot
+## Height vs Age
 
 ``` {r}
 # calculate height z-scores (stored in $ZStat)
@@ -567,7 +567,7 @@ suppressWarnings(p)
 
 ```
 
-## Height (z-score) vs Age plot
+## Height (z-score) vs Age
 
 ``` {r}
 
@@ -639,7 +639,7 @@ suppressWarnings(p)
 
 ```
 
-## Weight vs Age Plot
+## Weight vs Age
 
 ``` {r}
 # calculate weight z-scores (stored in $Zweight)
@@ -833,7 +833,7 @@ suppressWarnings(p)
 
 ```
 
-## Weight (z-score) vs Age plot
+## Weight (z-score) vs Age
 
 ``` {r}
 
@@ -905,7 +905,7 @@ suppressWarnings(p)
 
 ```
 
-## Body Mass Index (BMI) vs Age Plot
+## Body Mass Index (BMI) vs Age
 
 ``` {r warning=FALSE}
 # Some outliers apparent in BMI, likely secondary to inaccurate weight and height data.
@@ -933,6 +933,8 @@ p <- FilteredAgePatientData %>%
 suppressWarnings(p)
   
 ``` 
+
+## BMI vs Age by Gender
 
 ``` {r}
 # calculate BMI z-scores (stored in $Zbmi)
@@ -1137,7 +1139,7 @@ suppressWarnings(p)
 
 ```
 
-## BMI (z-score) vs Age plot
+## BMI (z-score) vs Age
 
 ``` {r}
 
