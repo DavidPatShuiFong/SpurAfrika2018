@@ -1,15 +1,19 @@
 ---
 title: "SpurAfrika2018"
-author: David Fong
-date: March 21, 2018
-always_allow_html: yes
+author: "David Fong"
+date: "March 26, 2018"
 output:
-#  ioslides_presentation
   html_document:
-    keep_md: yes
-  pdf_document: default
-  word_document: default
+    df_print: paged
+always_allow_html: yes
+
 ---
+``` {r echo = FALSE}
+# html_document:
+# df_print: paged
+# always_allow_html: yes
+
+```
 
 # Synopsis
 
@@ -19,7 +23,7 @@ Summary statistics and Exploratory analysis of Spur Afrika Clinic activity in Ki
 knitr::opts_chunk$set(echo = FALSE)
 # knitr::opts_chunk$set(fig.width = 7, fig.height = 7) # plot size
 
-modifying_code_echo = FALSE # echo code that modifies data?
+modifying_code_echo = TRUE # echo code that modifies data?
 print_tables = 'hide'
 
 ```
