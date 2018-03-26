@@ -96,8 +96,22 @@ names(RawPatientData) <- make.names(names(RawPatientData))
 
 ``` {r}
 # read in Stature, Weight and BMI percentile calculation charts
+
+# Tables and formulas all obtained from CDC (Centres of Disease Control, United States)
+# in turn, some of those tables (especially age less than 24 months) and formulas
+# are derived from the WHO (World Health Organization)
+# for this reason the data at the age of twenty-four months is not 'continous' (has 'kinks')
+
+# Tables and instructions can be found at CDC https://www.cdc.gov/growthcharts/data_tables.htm
+# and WHO http://www.who.int/growthref/who2007_bmi_for_age/en/
+# WHO formulas are used for BMI calculations
+
 StatForAge <- list(Female =as.tibble(read.csv('StatForAgeF.csv')),
                    Male = as.tibble(read.csv('StatForAgeM.csv')))
+WeightForAge <- list(Female =as.tibble(read.csv('WeightForAgeF.csv')),
+                   Male = as.tibble(read.csv('WeightForAgeM.csv')))
+BMIForAge <- list(Female =as.tibble(read.csv('BMIForAgeF.csv')),
+                   Male = as.tibble(read.csv('BMIForAgeM.csv')))
 ```
 
 ``` {r}
@@ -363,19 +377,21 @@ gp
 ## Height vs Age Plot
 
 ``` {r}
+# calculate height z-scores (stored in $ZStat)
+# and percentiles (stored in $PStat) for age
 
 FilteredAgePatientData <- FilteredAgePatientData %>%
   # StatForAgeRow refers to the row number in the StatForAge[[Gender]]
   mutate(StatForAgeRows = mapply(function(months, gender) {
-    as.numeric(cut(months, StatForAge[[gender]]$StatForAge, include.lowest = TRUE, right = FALSE))
+    as.numeric(cut(months, StatForAge[[gender]]$Month, include.lowest = TRUE, right = FALSE))
     },
     Age.in.months, Gender)) %>%
   mutate(Lstat = mapply(function(row, gender, months) {
     l <- StatForAge[[gender]][row,'L']
     # interpolate between the 'L' value for the 'month below' and the 'month above'
     l <- l + 
-      ((months - StatForAge[[gender]][row,'StatForAge']) / 
-         (StatForAge[[gender]][row+1,'StatForAge'] - StatForAge[[gender]][row,'StatForAge'])) *
+      ((months - StatForAge[[gender]][row,'Month']) / 
+         (StatForAge[[gender]][row+1,'Month'] - StatForAge[[gender]][row,'Month'])) *
       (StatForAge[[gender]][row+1,'L'] - StatForAge[[gender]][row,'L'])
     return (l)
     },
@@ -384,8 +400,8 @@ FilteredAgePatientData <- FilteredAgePatientData %>%
     m <- StatForAge[[gender]][row,'M']
     # interpolate between the 'M' value for the 'month below' and the 'month above'
     m <- m + 
-      ((months - StatForAge[[gender]][row,'StatForAge']) / 
-         (StatForAge[[gender]][row+1,'StatForAge'] - StatForAge[[gender]][row,'StatForAge'])) *
+      ((months - StatForAge[[gender]][row,'Month']) / 
+         (StatForAge[[gender]][row+1,'Month'] - StatForAge[[gender]][row,'Month'])) *
       (StatForAge[[gender]][row+1,'M'] - StatForAge[[gender]][row,'M'])
     return (m)
     },
@@ -394,8 +410,8 @@ FilteredAgePatientData <- FilteredAgePatientData %>%
     s <- StatForAge[[gender]][row,'S']
     # interpolate between the 'S' value for the 'month below' and the 'month above'
     s <- s + 
-      ((months - StatForAge[[gender]][row,'StatForAge']) / 
-         (StatForAge[[gender]][row+1,'StatForAge'] - StatForAge[[gender]][row,'StatForAge'])) *
+      ((months - StatForAge[[gender]][row,'Month']) / 
+         (StatForAge[[gender]][row+1,'Month'] - StatForAge[[gender]][row,'Month'])) *
       (StatForAge[[gender]][row+1,'S'] - StatForAge[[gender]][row,'S'])
     return (s)
     },
@@ -442,35 +458,35 @@ p1 <- FilteredAgePatientData %>%
               line = list(color = 'rgba(7,164,181,0.05)'),
               fillcolor = 'rgba(7,164,181,0.2)',
               showlegend = FALSE) %>% 
-  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Female']][minmax_rows,]$P3,
             line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
             name = '3rd centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('3rd centile')) %>%
-  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Female']][minmax_rows,]$P25,
             line = list(color = 'rgba(0,0,0,0.1)'),
             name = '25th centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('25th centile')) %>%
-  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Female']][minmax_rows,]$P50,
             line = list(color = 'rgba(0,0,0,0.25), width = 5'),
             name = '50th centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('50th centile')) %>%
-  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Female']][minmax_rows,]$P75,
             line = list(color = 'rgba(0,0,0,0.1)'),
             name = '75th centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('75th centile')) %>%
-  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Female']][minmax_rows,]$P97,
             line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
             name = '97th centile',
@@ -504,35 +520,35 @@ p2 <- FilteredAgePatientData %>%
             line = list(color = 'rgba(7,164,181,0.05)'),
             fillcolor = 'rgba(7,164,181,0.2)',
             showlegend = FALSE) %>%
-  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Male']][minmax_rows,]$P3,
             line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
             name = '3rd centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('3rd centile')) %>%
-  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Male']][minmax_rows,]$P25,
             line = list(color = 'rgba(0,0,0,0.1)'),
             name = '25th centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('25th centile')) %>%
-  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Male']][minmax_rows,]$P50,
             line = list(color = 'rgba(0,0,0,0.25), width = 5'),
             name = '50th centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('50th centile')) %>%
-  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Male']][minmax_rows,]$P75,
             line = list(color = 'rgba(0,0,0,0.1)'),
             name = '75th centile',
             showlegend = FALSE,
             hoverinfo = 'text',
             text = ~paste('75th centile')) %>%
-  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$StatForAge/12,
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
             y = ~StatForAge[['Male']][minmax_rows,]$P97,
             line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
             name = '97th centile',
@@ -551,6 +567,8 @@ suppressWarnings(p)
 
 ```
 
+## Height (z-score) vs Age plot
+
 ``` {r}
 
 # calculate Loess smoother with uncertainty bounds
@@ -567,6 +585,7 @@ p1 <- FilteredAgePatientData %>%
   plot_ly(x = ~Age.in.years, color = I('red')) %>%
   add_markers(y = ~Zstat,
           type = 'scatter', mode = 'markers', name = ~'Female',
+          showlegend = FALSE,
           hoverinfo = 'text',
           text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
                         '<br>Height :', sprintf('%.1f', Height),
@@ -584,7 +603,7 @@ p1 <- FilteredAgePatientData %>%
               showlegend = FALSE) %>% 
   layout(title = 'Height (z-score) vs Age
          Spur Afrika Clinic, January 2018',
-         xaxis = list(title = 'Age in years'),
+         xaxis = list(title = 'Age in years (Female)'),
          yaxis = list(title = 'Height (z-score)'))
 
 p2 <- FilteredAgePatientData %>%
@@ -593,6 +612,7 @@ p2 <- FilteredAgePatientData %>%
   plot_ly(x = ~Age.in.years, color=I('blue')) %>%
   add_markers(y = ~Zstat,
           type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
           hoverinfo = 'text',
           text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
                         '<br>Height :', sprintf('%.1f', Height),
@@ -610,7 +630,7 @@ p2 <- FilteredAgePatientData %>%
             showlegend = FALSE) %>% 
   layout(title = 'Height (z-score) vs Age
          Spur Afrika Clinic, January 2018',
-         xaxis = list(title = 'Age in years'),
+         xaxis = list(title = 'Age in years (Male)'),
          yaxis = list(title = 'Height (z-score)'))
 
 p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
@@ -619,18 +639,286 @@ suppressWarnings(p)
 
 ```
 
+## Weight vs Age Plot
+
+``` {r}
+# calculate weight z-scores (stored in $Zweight)
+# and percentiles (stored in $Pweight) for age
+
+FilteredAgePatientData <- FilteredAgePatientData %>%
+  # WeightForAgeRow refers to the row number in the WeightForAge[[Gender]]
+  mutate(WeightForAgeRows = mapply(function(months, gender) {
+    as.numeric(cut(months, WeightForAge[[gender]]$Month, include.lowest = TRUE, right = FALSE))
+    },
+    Age.in.months, Gender)) %>%
+  mutate(Lweight = mapply(function(row, gender, months) {
+    l <- WeightForAge[[gender]][row,'L']
+    # interpolate between the 'L' value for the 'month below' and the 'month above'
+    l <- l + 
+      ((months - WeightForAge[[gender]][row,'Month']) / 
+         (WeightForAge[[gender]][row+1,'Month'] - WeightForAge[[gender]][row,'Month'])) *
+      (WeightForAge[[gender]][row+1,'L'] - WeightForAge[[gender]][row,'L'])
+    return (l)
+    },
+    WeightForAgeRows, Gender, Age.in.months)) %>%
+  mutate(Mweight = mapply(function(row, gender, months) {
+    m <- WeightForAge[[gender]][row,'M']
+    # interpolate between the 'M' value for the 'month below' and the 'month above'
+    m <- m + 
+      ((months - WeightForAge[[gender]][row,'Month']) / 
+         (WeightForAge[[gender]][row+1,'Month'] - WeightForAge[[gender]][row,'Month'])) *
+      (WeightForAge[[gender]][row+1,'M'] - WeightForAge[[gender]][row,'M'])
+    return (m)
+    },
+    WeightForAgeRows, Gender, Age.in.months)) %>%
+  mutate(Sweight = mapply(function(row, gender, months) {
+    s <- WeightForAge[[gender]][row,'S']
+    # interpolate between the 'S' value for the 'month below' and the 'month above'
+    s <- s + 
+      ((months - WeightForAge[[gender]][row,'Month']) / 
+         (WeightForAge[[gender]][row+1,'Month'] - WeightForAge[[gender]][row,'Month'])) *
+      (WeightForAge[[gender]][row+1,'S'] - WeightForAge[[gender]][row,'S'])
+    return (s)
+    },
+    WeightForAgeRows, Gender, Age.in.months)) %>%
+  # Z-score
+  mutate(Zweight = ((Weight/as.numeric(Mweight))^as.numeric(Lweight)-1)/
+           (as.numeric(Lweight) * as.numeric(Sweight))) %>%
+  # percentile
+  mutate(Pweight = pnorm(Zweight))
+
+```
+
+``` {r}
+# Weight (kg) vs Age (years), Female and Male Charts
+
+# calculate Loess smoother with uncertainty bounds for recorded heights
+mf <- loess(Weight ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Weight) & FilteredAgePatientData$Gender == 'Female',])
+mm <- loess(Weight ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Weight) & FilteredAgePatientData$Gender == 'Male',])
+# minimum/maximum rows of WeightForAge rows required for plotting
+minmax_rows <- min(FilteredAgePatientData$WeightForAgeRows):max(FilteredAgePatientData$WeightForAgeRows)
+
+p1 <- FilteredAgePatientData %>%
+  filter(!is.na(Weight) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~Weight,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Weight :', sprintf('%.1f', Weight),
+                        '<br>Weight-z : ', sprintf('%.1f', Zweight),
+                        '<br>Weight-% : ', sprintf('%.0f', Pweight*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Weight ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  add_lines(x = ~WeightForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Female']][minmax_rows,]$P3,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '3rd centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('3rd centile')) %>%
+  add_lines(x = ~WeightForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Female']][minmax_rows,]$P25,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '25th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('25th centile')) %>%
+  add_lines(x = ~WeightForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Female']][minmax_rows,]$P50,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = '50th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('50th centile')) %>%
+  add_lines(x = ~WeightForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Female']][minmax_rows,]$P75,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '75th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('75th centile')) %>%
+  add_lines(x = ~WeightForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Female']][minmax_rows,]$P97,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '97th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('97th centile')) %>%
+  layout(title = 'Weight (kg) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Female)'),
+         yaxis = list(title = 'Weight (kg)'))
+
+p2 <- FilteredAgePatientData %>%
+  filter(!is.na(Weight) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~Weight,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Weight :', sprintf('%.1f', Weight),
+                        '<br>Weight-z : ', sprintf('%.1f', Zweight),
+                        '<br>Weight-% : ', sprintf('%.0f', Pweight*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Weight ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>%
+  add_lines(x = ~WeightForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Male']][minmax_rows,]$P3,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '3rd centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('3rd centile')) %>%
+  add_lines(x = ~WeightForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Male']][minmax_rows,]$P25,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '25th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('25th centile')) %>%
+  add_lines(x = ~WeightForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Male']][minmax_rows,]$P50,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = '50th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('50th centile')) %>%
+  add_lines(x = ~WeightForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Male']][minmax_rows,]$P75,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '75th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('75th centile')) %>%
+  add_lines(x = ~WeightForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~WeightForAge[['Male']][minmax_rows,]$P97,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '97th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('97th centile')) %>%
+  layout(title = 'Weight (kg) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Male)'),
+         yaxis = list(title = 'Weight (kg)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
+
+
+```
+
+## Weight (z-score) vs Age plot
+
+``` {r}
+
+# calculate Loess smoother with uncertainty bounds
+mf <- loess(Zweight ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Weight) & FilteredAgePatientData$Gender == 'Female',])
+mm <- loess(Zweight ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Weight) & FilteredAgePatientData$Gender == 'Male',])
+
+p1 <- FilteredAgePatientData %>%
+  filter(!is.na(Weight) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~Zweight,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          hoverinfo = 'text',
+          showlegend = FALSE,
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Weight :', sprintf('%.1f', Weight),
+                        '<br>Weight-z : ', sprintf('%.1f', Zweight),
+                        '<br>Weight-% : ', sprintf('%.0f', Pweight*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Zweight ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  layout(title = 'Weight (z-score) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Female)'),
+         yaxis = list(title = 'Weight (z-score)'))
+
+p2 <- FilteredAgePatientData %>%
+  filter(!is.na(Weight) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~Zweight,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Weight :', sprintf('%.1f', Weight),
+                        '<br>Weight-z : ', sprintf('%.1f', Zweight),
+                        '<br>Weight-% : ', sprintf('%.0f', Pweight*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Zweight ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>% 
+  layout(title = 'Weight (z-score) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Male)'),
+         yaxis = list(title = 'Weight (z-score)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
+
+```
 
 ## Body Mass Index (BMI) vs Age Plot
 
 ``` {r warning=FALSE}
 # Some outliers apparent in BMI, likely secondary to inaccurate weight and height data.
 
-p <- FilteredAgePatientData %>%
+# calculate BMI
+FilteredAgePatientData <- FilteredAgePatientData %>%
   # need both height and weight to calculate body mass index (BMI)
   filter(!is.na(Height) & !is.na(Weight)) %>%
   # calculate BMI, which is weight divided by the square of the height
   # weight is in kilogrammes, height is in metres
-  mutate(bmi = Weight/((Height/100)^2)) %>%
+  mutate(bmi = Weight/((Height/100)^2))
+
+p <- FilteredAgePatientData %>%
   plot_ly(x = ~Age.in.years, y = ~bmi, color = ~Gender,
           type = 'scatter', mode = 'markers',
           hoverinfo = 'text',
@@ -645,6 +933,281 @@ p <- FilteredAgePatientData %>%
 suppressWarnings(p)
   
 ``` 
+
+``` {r}
+# calculate BMI z-scores (stored in $Zbmi)
+# and percentiles (stored in $Pbmi) for age
+
+FilteredAgePatientData <- FilteredAgePatientData %>%
+  # BMIForAgeRow refers to the row number in the WeightForAge[[Gender]]
+  mutate(BMIForAgeRows = mapply(function(months, gender) {
+    as.numeric(cut(months, BMIForAge[[gender]]$Month, include.lowest = TRUE, right = FALSE))
+    },
+    Age.in.months, Gender)) %>%
+  mutate(Lbmi = as.numeric(mapply(function(row, gender, months) {
+    l <- BMIForAge[[gender]][row,'L']
+    # interpolate between the 'L' value for the 'month below' and the 'month above'
+    l <- l + 
+      ((months - BMIForAge[[gender]][row,'Month']) / 
+         (BMIForAge[[gender]][row+1,'Month'] -BMIForAge[[gender]][row,'Month'])) *
+      (BMIForAge[[gender]][row+1,'L'] - BMIForAge[[gender]][row,'L'])
+    return (l)
+    },
+    BMIForAgeRows, Gender, Age.in.months))) %>%
+  mutate(Mbmi = as.numeric(mapply(function(row, gender, months) {
+    m <- BMIForAge[[gender]][row,'M']
+    # interpolate between the 'M' value for the 'month below' and the 'month above'
+    m <- m + 
+      ((months - BMIForAge[[gender]][row,'Month']) / 
+         (BMIForAge[[gender]][row+1,'Month'] - BMIForAge[[gender]][row,'Month'])) *
+      (BMIForAge[[gender]][row+1,'M'] - BMIForAge[[gender]][row,'M'])
+    return (m)
+    },
+    BMIForAgeRows, Gender, Age.in.months))) %>%
+  mutate(Sbmi = as.numeric(mapply(function(row, gender, months) {
+    s <- BMIForAge[[gender]][row,'S']
+    # interpolate between the 'S' value for the 'month below' and the 'month above'
+    s <- s + 
+      ((months - BMIForAge[[gender]][row,'Month']) / 
+         (BMIForAge[[gender]][row+1,'Month'] - BMIForAge[[gender]][row,'Month'])) *
+      (BMIForAge[[gender]][row+1,'S'] - BMIForAge[[gender]][row,'S'])
+    return (s)
+    },
+    BMIForAgeRows, Gender, Age.in.months))) %>%
+  # Z-score
+  # formulas available at WHO http://www.who.int/growthref/who2007_bmi_for_age/en/
+  # in link labelled 'Computation of centiles and z-scores'
+  mutate(Zbmi = ((bmi/as.numeric(Mbmi))^as.numeric(Lbmi)-1)/
+           (as.numeric(Lbmi) * as.numeric(Sbmi))) %>%
+  mutate(Zbmi_sd3pos = ifelse(Zbmi > 3, Mbmi*(1+Lbmi*Sbmi*3)^(1/Lbmi), 0)) %>%
+  mutate(Zbmi_sd3neg = ifelse(Zbmi < -3, Mbmi*(1+Lbmi*Sbmi* -3)^(1/Lbmi), 0)) %>%
+  mutate(Zbmi_sd23pos = 
+           ifelse(Zbmi > 3, Mbmi*(1+Lbmi*Sbmi*3)^(1/Lbmi)-Mbmi*(1+Lbmi*Sbmi*2)^(1/Lbmi), 0)) %>%
+  mutate(Zbmi_sd23neg =
+           ifelse(Zbmi < -3, Mbmi*(1+Lbmi*Sbmi*-2)^(1/Lbmi)-Mbmi*(1+Lbmi*Sbmi* -3)^(1/Lbmi), 0)) %>%
+  mutate(Zbmi = ifelse(abs(Zbmi) <= 3, Zbmi,
+                       ifelse(Zbmi > 3, 3+(bmi-Zbmi_sd3pos)/Zbmi_sd23pos,
+                              -3+(bmi-Zbmi_sd3neg)/Zbmi_sd23neg))) %>%
+  # percentile
+  mutate(Pbmi = pnorm(Zbmi))
+
+```
+
+``` {r}
+# BMI (kg/m^2) vs Age (years), Female and Male Charts
+
+# calculate Loess smoother with uncertainty bounds for recorded heights
+mf <- loess(bmi ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Weight) & FilteredAgePatientData$Gender == 'Female',])
+mm <- loess(bmi ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$Weight) & FilteredAgePatientData$Gender == 'Male',])
+# minimum/maximum rows of WeightForAge rows required for plotting
+minmax_rows <- min(FilteredAgePatientData$BMIForAgeRows):max(FilteredAgePatientData$BMIForAgeRows)
+
+p1 <- FilteredAgePatientData %>%
+  filter(!is.na(bmi) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~bmi,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>BMI :', sprintf('%.1f', bmi),
+                        '<br>BMI-z : ', sprintf('%.1f', Zbmi),
+                        '<br>BMI-% : ', sprintf('%.0f', Pbmi*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(bmi ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD2neg,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD-2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -2')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD1neg,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD-1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -1')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD0,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = 'SD0',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev 0')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD1,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD+1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +1')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD2,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD+2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +2')) %>%
+  layout(title = 'BMI vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Female)'),
+         yaxis = list(title = 'BMI (kg/m<sup>2</sup>)'))
+
+p2 <- FilteredAgePatientData %>%
+  filter(!is.na(bmi) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~bmi,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>BMI :', sprintf('%.1f', bmi),
+                        '<br>BMI-z : ', sprintf('%.1f', Zbmi),
+                        '<br>BMI-% : ', sprintf('%.0f', Pbmi*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(bmi ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD2neg,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD-2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -2')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD1neg,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD-1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -1')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD0,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = 'SD0',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev 0')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD1,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD+1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +1')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD2,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD+2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +2')) %>%
+  layout(title = 'BMI vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Male)'),
+         yaxis = list(title = 'BMI (kg/m<sup>2</sup>)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
+
+
+```
+
+## BMI (z-score) vs Age plot
+
+``` {r}
+
+# calculate Loess smoother with uncertainty bounds
+mf <- loess(Zbmi ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$bmi) & FilteredAgePatientData$Gender == 'Female',])
+mm <- loess(Zbmi ~ Age.in.years,
+            data = FilteredAgePatientData[!is.na(FilteredAgePatientData$Age.in.years) &
+              !is.na(FilteredAgePatientData$bmi) & FilteredAgePatientData$Gender == 'Male',])
+
+p1 <- FilteredAgePatientData %>%
+  filter(!is.na(bmi) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~Zbmi,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          hoverinfo = 'text',
+          showlegend = FALSE,
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>BMI :', sprintf('%.1f', bmi),
+                        '<br>BMI-z : ', sprintf('%.1f', Zbmi),
+                        '<br>BMI-% : ', sprintf('%.0f', Pbmi*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Zbmi ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  layout(title = 'BMI (z-score) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Female)'),
+         yaxis = list(title = 'BMI (z-score)'))
+
+p2 <- FilteredAgePatientData %>%
+  filter(!is.na(bmi) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~Zbmi,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>BMI :', sprintf('%.1f', bmi),
+                        '<br>BMI-z : ', sprintf('%.1f', Zbmi),
+                        '<br>BMI-% : ', sprintf('%.0f', Pbmi*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Zbmi ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>% 
+  layout(title = 'BMI (z-score) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Male)'),
+         yaxis = list(title = 'BMI (z-score)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
+
+```
 
 # Clinical Findings
 
