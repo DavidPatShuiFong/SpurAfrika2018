@@ -1406,7 +1406,11 @@ ChildFilteredFindingsData <- ChildFilteredFindingsData %>%
 ChildFilteredFindingAnonymisedData <- 
   select(ChildFilteredFindingsData, -Full.name, -Date.of.birth, -Data.collection.date)
 
-save(ChildFilteredFindingAnonymisedData,file='ChildFilteredData.Rda')
+save(ChildFilteredFindingAnonymisedData, file='ChildFilteredData.Rda')
+
+save(StatForAge, file='StatForAge.Rda')
+save(WeightForAge, file='WeightForAge.Rda')
+save(BMIForAge, file='BMIForAge.Rda')
 
 ```
 

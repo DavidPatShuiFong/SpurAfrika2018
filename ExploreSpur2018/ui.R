@@ -29,13 +29,23 @@ shinyUI(fluidPage(
   titlePanel("Spur Afrika, January 2018 clinic - Nairobi, Kenya - Child Data subset"),
   
   # Sidebar with a slider input for number of bins 
+
+  fluidRow(
+    column(2,
+           h3('Age selection'),
+           sliderInput("AgeRange",
+                       "Age range (years):",
+                       min = minimum_age,
+                       max = maximum_age,
+                       value = c(minimum_age,maximum_age))
+           )
+  ),
   fluidRow(
     column(2,
            h2('Left Charts'),
            selectInput('Gender1',
                        'Gender',
                        choices = c('Any','Female','Male')),
-           textOutput('g1'),
            h3('List of conditions'),
            selectInput('Include1',
                        'Include or Exclude',
@@ -43,16 +53,16 @@ shinyUI(fluidPage(
     ),
     # Show a plot of the generated distribution
     column(4,
-           h3('Age selection'),
-           sliderInput("AgeRange",
-                       "Age range (years):",
-                       min = minimum_age,
-                       max = maximum_age,
-                       value = c(minimum_age,maximum_age)),
-           plotlyOutput('plot1')
+           plotlyOutput('plot1'),
+           textOutput('stature1_median'),
+           textOutput('stature1_mean'),
+           textOutput('stature1_sd'),
+           textOutput('age1_median'),
+           textOutput('age1_mean'),
+           textOutput('age1_sd')
     ),
     column(4,
-           print('')
+           plotlyOutput('plot2')
     ),
     column(2,
            h2('Right Charts'),
