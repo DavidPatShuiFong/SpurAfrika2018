@@ -1245,6 +1245,24 @@ ChildFindingsData <- ChildPatientData %>%
   # capitalize the first letter of each finding, no capitals elsewhere
   mutate(Finding = paste(toupper(substring(Finding,1,1)),
                          tolower(substring(Finding,2)), sep = ''))
+
+ChildFilteredFindingsData <- FilteredAgePatientData %>%
+  # do some thing for FilteredAgePatientData
+  # patients aged 18 years or younger, does not include children without specified age but where other evidence suggests they are in school
+  mutate(CombinedFindings = Map(append,Findings,Findings2)) %>%
+  # Findings were stored in two separate columns
+  mutate(Findings = lapply(CombinedFindings,
+                           function(Finding) as.data.frame(Finding, stringsAsFactors = FALSE))) %>%
+  # unnest requires dataframes
+  unnest(Findings) %>% 
+  # each finding has its own row, so an individual patient will be listed multiple times
+  # change to descriptive finding names
+  mutate(Finding = 
+           RawFindingCodes$Description[match(Finding,as.character(RawFindingCodes$id))]) %>%
+  # capitalize the first letter of each finding, no capitals elsewhere
+  mutate(Finding = paste(toupper(substring(Finding,1,1)),
+                         tolower(substring(Finding,2)), sep = ''))
+
 ```
 
 ## Clean up Findings Data
@@ -1264,6 +1282,14 @@ ChildFindingsData[ChildFindingsData$Finding == 'Difficulty hearing',]$Finding <-
 ChildFindingsData[ChildFindingsData$Finding == 'Poor hearing',]$Finding <- 'Hearing loss'
 ChildFindingsData[ChildFindingsData$Finding == 'Itchy eyes',]$Finding <- 'Eye irritation'
 ChildFindingsData[ChildFindingsData$Finding == 'Mittleschmerz pain',]$Finding <- 'Mittelschmerz pain'
+
+ChildFilteredFindingsData[ChildFilteredFindingsData$Finding == 'Caries',]$Finding <- 'Dental decay'
+ChildFilteredFindingsData[ChildFilteredFindingsData$Finding == 'Tooth decay',]$Finding <- 'Dental decay'
+# ChildFilteredFindingsData[ChildFilteredFindingsData$Finding == 'Difficulty hearing',]$Finding <- 'Hearing loss'
+# ChildFilteredFindingsData[ChildFilteredFindingsData$Finding == 'Poor hearing',]$Finding <- 'Hearing loss'
+ChildFilteredFindingsData[ChildFilteredFindingsData$Finding == 'Itchy eyes',]$Finding <- 'Eye irritation'
+ChildFilteredFindingsData[ChildFilteredFindingsData$Finding == 'Mittleschmerz pain',]$Finding <- 'Mittelschmerz pain'
+
 
 ```
 
@@ -1369,6 +1395,18 @@ FindingCategories <- FindingCategories %>%
 ChildFindingsData <- ChildFindingsData %>%
   left_join(FindingCategories, by = 'Finding') %>%
   rename(Finding.Category = Category)
+
+ChildFilteredFindingsData <- ChildFilteredFindingsData %>%
+  left_join(FindingCategories, by = 'Finding') %>%
+  rename(Finding.Category = Category)
+```
+
+``` {r}
+# remove identifying data
+ChildFilteredFindingAnonymisedData <- 
+  select(ChildFilteredFindingsData, -Full.name, -Date.of.birth)
+
+save(ChildFilteredFindingAnonymisedData,file='ChildFilteredData.Rda')
 
 ```
 
