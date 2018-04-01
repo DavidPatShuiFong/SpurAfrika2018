@@ -1404,7 +1404,7 @@ ChildFilteredFindingsData <- ChildFilteredFindingsData %>%
 ``` {r}
 # remove identifying data
 ChildFilteredFindingAnonymisedData <- 
-  select(ChildFilteredFindingsData, -Full.name, -Date.of.birth)
+  select(ChildFilteredFindingsData, -Full.name, -Date.of.birth, -Data.collection.date)
 
 save(ChildFilteredFindingAnonymisedData,file='ChildFilteredData.Rda')
 
