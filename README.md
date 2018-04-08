@@ -17,7 +17,7 @@ Two sets of plots 'left' and 'right' chart, each with independent filters for Ge
 
 Age restrictions can be set in the top-left corner
 
-## Plots
+### Plots
 
 * Scatter plot : information on data-points available on hover. Sub-sections can be viewed with click-and-drag.
 * Vertical box-plot of metric
