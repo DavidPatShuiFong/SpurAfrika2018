@@ -45,11 +45,15 @@ shinyUI(fluidPage(
            h2('Left Charts'),
            selectInput('Gender1',
                        'Gender',
-                       choices = c('Any','Female','Male')),
+                       choices = c('Any', 'Female', 'Male')),
+           h2('Measurement'),
+           selectInput('Metric1',
+                       'Metric',
+                       choices = c('Height', 'Weight', 'Body Mass Index')),
            h3('List of conditions'),
            selectInput('Include1',
                        'Include or Exclude',
-                       choices = c('No condition filter','Include','Exclude'))
+                       choices = c('No condition filter', 'Include', 'Exclude'))
     ),
     # Show a plot of the generated distribution
     column(4,
