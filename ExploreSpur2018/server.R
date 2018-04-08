@@ -32,9 +32,11 @@ unique_child <- patient_data %>%
   distinct(id, .keep_all = TRUE) %>%
   # for this table we don't need finding list (since we need to refer to original table)
   select(-Finding, -Finding.Category)
+unique_ids <- unique_child$id # list of unique IDs
 
 # will use data_subset to reactively hold subset data
-data_subset <- list()
+data_subset <- list() # age filter
+data_condition_set <- list() # condition filter
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -48,44 +50,83 @@ shinyServer(function(input, output) {
       'Male'
     }
   })
-  
+
+    
   metric1 <- reactive({
-    if (input$Metric1 == 'Height') {
-      'Height'
-    } else if (input$Metric1 == 'Weight') {
-      'Weight'
-    } else if (input$Metric1 == 'Body Mass Index') {
-      'bmi'
-    }
+    # metric to plot
+    return (metric_variable(input$Metric1))
   })
 
-  metric_cluster1 <- reactive({
-    if (input$Metric1 == 'Height') {
-      c('Height', 'Zstat', 'Pstat')
-    } else if (input$Metric1 == 'Weight') {
-      c('Weight', 'Zstat', 'Pstat')
-    } else if (input$Metric1 == 'Body Mass Index') {
-      c('bmi', 'Zbmi', 'Pbmi')
-    }
-  })
+  metric_variable <- function (choice) {
+    # return variable name depending on choice
+    # used by reactive variable metric1
+    
+    return (list('Height', 'Weight', 'bmi', 'Zstat', 'Zweight', 'Zbmi')[[
+      match(choice,
+            c('Height', 'Weight', 'Body Mass Index',
+              'Height-z', 'Weight-z', 'Body Mass Index-z'))]])
+  }
   
-  metric_namecluster1 <- reactive({
-    if (input$Metric1 == 'Height') {
-      c('Height', 'Height-z', 'Height-%')
-    } else if (input$Metric1 == 'Weight') {
-      c('Weight', 'Weight-z', 'Weight-%')
-    }
+  metric_cluster1 <- reactive({
+    # group of variables to put in point labels of data
+    
+    return (metric_cluster(input$Metric1))
   })
+
+  metric_cluster <- function (choice) {
+    # return labels depending on choice
+    # used by reactive variable metric_cluster1
+    
+    return (list(c('Height', 'Zstat', 'Pstat'),
+                 c('Weight', 'Zstat', 'Pstat'),
+                 c('bmi', 'Zbmi', 'Pbmi'),
+                 c('Height', 'Zstat', 'Pstat'),
+                 c('Weight', 'Zstat', 'Pstat'),
+                 c('bmi', 'Zbmi', 'Pbmi'))[[
+                   match(choice,
+                         c('Height', 'Weight', 'Body Mass Index',
+                           'Height-z', 'Weight-z', 'Body Mass Index-z'))]])
+  }
+    
+  metric_namecluster1 <- reactive({
+    # variable names depending on metric choice
+    
+    return (metric_namecluster(input$Metric1))
+            
+  })
+
+  metric_namecluster <- function (choice) {
+    # return variable names depending on choice
+    # used by reactive variable metric_namecluster1
+    
+    return (list(c('Height', 'Height-z', 'Height-%'),
+                 c('Weight', 'Weight-z', 'Weight-%'),
+                 c('BMI', 'BMI-z', 'BMI-%'),
+                 c('Height', 'Height-z', 'Height-%'),
+                 c('Weight', 'Weight-z', 'Weight-%'),
+                 c('BMI', 'BMI-z', 'BMI-%'))[[
+                   match(choice,
+                         c('Height', 'Weight', 'Body Mass Index',
+                           'Height-z', 'Weight-z', 'Body Mass Index-z'))]])
+  }
   
   yaxis_name1 <- reactive({
-    if (input$Metric1 == 'Height') {
-      'Height (cm)'
-    } else if (input$Metric1 == 'Weight') {
-      'Weight (kg)'
-    } else if (input$Metric1 == 'Body Mass Index') {
-      c('BMI', 'BMI-z', 'BMI-%')
-    }
+    # name of the y-axis, also used for name of chart
+    
+    return (yaxis_name(input$Metric1))
+    
   })
+  
+  yaxis_name <- function (choice) {
+    # return axis labels depending on choice
+    # used by reactive variable yaxis_name1
+    
+    return (list('Height (cm)', 'Weight (kg)', 'Body Mass Index (kg/m<sup>2</sup>)',
+                 'Height (z)', 'Weight (z)', 'Body Mass Index (z)')[[
+                   match(choice,
+                         c('Height', 'Weight', 'Body Mass Index',
+                           'Height-z', 'Weight-z', 'Body Mass Index-z'))]])
+  }
   
   percentiles1 <- reactive({
     if (input$Metric1 == 'Height') {
@@ -94,6 +135,8 @@ shinyServer(function(input, output) {
       'WeightForAgeRows'
     } else if (input$Metric1 == 'Body Mass Index') {
       'BMIForAgeRows'
+    } else {
+      NA # no percentile table look-up required for this metric
     }
   })
   
@@ -102,70 +145,159 @@ shinyServer(function(input, output) {
       filter(Gender %in% gender_list1()) %>%
       filter(!is.na(!!metric1())) %>% # is the metric present?
       filter(!is.na(Age.in.years)) %>% # must be age data
-      filter(Age.in.years >= input$AgeRange[1]) %>%
-      filter(Age.in.years <= input$AgeRange[2])
+      filter(Age.in.years >= input$AgeRange[1]) %>% # filter by age
+      filter(Age.in.years <= input$AgeRange[2]) %>%
+      filter(id %in% data_condition_set[[1]]()) # filter by condition
   })
   
-  add_percentiles <- function(p, gender, metric, minmax_rows) {
-    p <- p %>%
-      add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                y = ~StatForAge[[gender]][minmax_rows,]$P3,
-                line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
-                name = '3rd centile',
-                showlegend = FALSE,
-                hoverinfo = 'text',
-                text = ~paste('3rd centile')) %>%
-      add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                y = ~StatForAge[[gender]][minmax_rows,]$P25,
-                line = list(color = 'rgba(0,0,0,0.1)'),
-                name = '25th centile',
-                showlegend = FALSE,
-                hoverinfo = 'text',
-                text = ~paste('25th centile')) %>%
-      add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                y = ~StatForAge[[gender]][minmax_rows,]$P50,
-                line = list(color = 'rgba(0,0,0,0.25), width = 5'),
-                name = '50th centile',
-                showlegend = FALSE,
-                hoverinfo = 'text',
-                text = ~paste('50th centile')) %>%
-      add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                y = ~StatForAge[[gender]][minmax_rows,]$P75,
-                line = list(color = 'rgba(0,0,0,0.1)'),
-                name = '75th centile',
-                showlegend = FALSE,
-                hoverinfo = 'text',
-                text = ~paste('75th centile')) %>%
-      add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                y = ~StatForAge[[gender]][minmax_rows,]$P97,
-                line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
-                name = '97th centile',
-                showlegend = FALSE,
-                hoverinfo = 'text',
-                text = ~paste('97th centile'))
+  data_condition_set[[1]] <- reactive({
+    if (input$Include1 == 'No condition filter') {
+      return (unique(patient_data$id)) # include everyone
+    } else if (input$Include1 == 'Include') {
+      id <- patient_data %>%
+        filter(Finding %in% input$Conditions1) %>% # filter by condition list
+        distinct(id) # only unique IDs, by default, this removes all other columns
+      return (id)
+    } else if (input$Include1 == 'Exclude') {
+      id <- patient_data %>%
+        filter(Finding %in% input$Conditions1) %>%
+        distinct(id)
+      id <- setdiff(unique_ids, id) # the list of IDs which are not in the condition list
+      return (id)
+    }
+  })
+  
+  output$list1 <- renderText({ paste(data_condition_set[[1]]()) })
+  
+  add_percentiles <- function(p, gender, metric, percentiles, minmax_rows) {
+    # add percentiles lines to plotly chart
+    
+    # p is the plotly chart which we are adding to
+    # metric is the measurement (one of Height, Weight, BMI)
+    # percentiles is the name of the table (plus 'Rows') to read from 
+    # minmax_rows is the pre-determind (age) rows to add
+    
+    percentiles <- substr(percentiles, 1, nchar(percentiles)-4)
+    # the calling function will pass a name like for 'StatForAgeRows',
+    # which needs to be truncated to 'StatForAge', which is the true name
+    # of the required table
+  
+    if (metric %in% c('Height','Weight')) {
+      p <- p %>%
+        
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$P3,
+                  line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+                  name = '3rd centile',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('3rd centile')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$P25,
+                  line = list(color = 'rgba(0,0,0,0.1)'),
+                  name = '25th centile',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('25th centile')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$P50,
+                  line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+                  name = '50th centile',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('50th centile')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$P75,
+                  line = list(color = 'rgba(0,0,0,0.1)'),
+                  name = '75th centile',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('75th centile')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$P97,
+                  line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+                  name = '97th centile',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('97th centile'))
+    } else if (metric == 'bmi') {
+      # bmi tables contain SD lines, not percentile lines
+      p <- p %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD4neg,
+                  line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+                  name = 'SD -4',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('SD -4')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD3neg,
+                  line = list(color = 'rgba(0,0,0,0.1)'),
+                  name = 'SD -3',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('SD -3')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD2neg,
+                  line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+                  name = 'SD -2',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('SD -2')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD1neg,
+                  line = list(color = 'rgba(0,0,0,0.1)'),
+                  name = 'SD -1',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('SD -1')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD0,
+                  line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+                  name = 'SD 0',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('SD 0')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD1,
+                  line = list(color = 'rgba(0,0,0,0.1)'),
+                  name = 'SD +1',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('SD +1')) %>%
+        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD2,
+                  line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+                  name = 'SD +2',
+                  showlegend = FALSE,
+                  hoverinfo = 'text',
+                  text = ~paste('SD +2'))
+      # don't add the SD+3 and SD+4 lines, those BMIs aren't very common in this dataset!
+#        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+#                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD3,
+#                  line = list(color = 'rgba(0,0,0,0.1)'),
+#                  name = 'SD +3',
+#                  showlegend = FALSE,
+#                  hoverinfo = 'text',
+#                  text = ~paste('SD +3')) %>%
+#        add_lines(x = ~get(percentiles)[[gender]][minmax_rows,]$Month/12,
+#                  y = ~get(percentiles)[[gender]][minmax_rows,]$SD4,
+#                  line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+#                  name = 'SD +4',
+#                  showlegend = FALSE,
+#                  hoverinfo = 'text',
+#                  text = ~paste('SD +4'))
+    }
+    
     return(p)
   }
   
-  output$stature1_median <- renderText({sprintf('Median height: %.2f',median(data_subset[[1]]()$Height))})
-  output$stature1_mean <- renderText({sprintf('Mean height: %.2f', mean(data_subset[[1]]()$Height))})
-  output$stature1_sd <- renderText({sprintf('SD height: %.2f', sd(data_subset[[1]]()$Height))})
-  output$age1_median <- renderText({sprintf('Median age: %.2f', median(data_subset[[1]]()$Age.in.years))})
-  output$age1_mean <- renderText({sprintf('Mean age: %.2f', mean(data_subset[[1]]()$Age.in.years))})
-  output$age1_sd <- renderText({sprintf('SD age: %.2f', sd(data_subset[[1]]()$Age.in.years))})
-
   output$plot1 <- renderPlotly({
     gender <- input$Gender1
 
     if (length(data_subset[[1]]()$id) == 0) {
       plotly_empty() # no data to plot
     } else {
-      
-      # Loess ribbon
-      ribbon <- loess(as.formula(paste(metric1(),' ~ Age.in.years')),
-                      data = data_subset[[1]]())
-      
-      # minimum/maximum rows of percentiles rows required for plotting
-      minmax_rows <- min(data_subset[[1]]()[[percentiles1()]]):max(data_subset[[1]]()[[percentiles1()]])
 
       p <- data_subset[[1]]() %>%
         plot_ly(x = ~Age.in.years) %>%
@@ -178,22 +310,46 @@ shinyServer(function(input, output) {
                                   '<br>', metric_namecluster1()[2],' : ', sprintf('%.1f', get(metric_cluster1()[2])),
                                   '<br>', metric_namecluster1()[3],' : ', sprintf('%.0f', get(metric_cluster1()[3])*100),
                                   '<br>ID :',id)) %>%
-        add_lines(y = ~fitted(loess(as.formula(paste(metric1(),' ~ Age.in.years')))),
-                  line = list(color = 'rgba(7,164,181,1)'),
-                  showlegend = FALSE) %>%
-        add_ribbons(data = augment(ribbon),
+        layout(title = paste(yaxis_name1(),' vs Age
+               Spur Afrika Clinic, January 2018'),
+               xaxis = list(title = 'Age in years'),
+               yaxis = list(title = yaxis_name1()),
+               margin = list(t = 20)) # some space above title
+      if (input$Stat1 == 'Loess') {
+        # Loess ribbon
+        ribbon <- loess(as.formula(paste(metric1(),' ~ Age.in.years')),
+                        data = data_subset[[1]]())
+        
+        p <- p %>%
+          add_lines(y = ~fitted(loess(as.formula(paste(metric1(),' ~ Age.in.years')))),
+                    line = list(color = 'rgba(7,164,181,1)'),
+                    showlegend = FALSE) %>%
+          add_ribbons(data = augment(ribbon),
+                      ymin = ~.fitted - 1.96 * .se.fit,
+                      ymax = ~.fitted + 1.96 * .se.fit,
+                      line = list(color = 'rgba(7,164,181,0.05)'),
+                      fillcolor = 'rgba(7,164,181,0.2)',
+                      showlegend = FALSE)
+      } else if (input$Stat1 == 'Linear Model'){
+        ribbon <- lm(as.formula(paste(metric1(),' ~ Age.in.years')),
+                        data = data_subset[[1]]())
+        p <- p %>%
+          add_lines(y = ~fitted(lm(as.formula(paste(metric1(),' ~ Age.in.years')))),
+                    line = list(color = 'rgba(7,164,181,1)'),
+                    showlegend = FALSE) %>%
+          add_ribbons(data = augment(ribbon),
                     ymin = ~.fitted - 1.96 * .se.fit,
                     ymax = ~.fitted + 1.96 * .se.fit,
                     line = list(color = 'rgba(7,164,181,0.05)'),
                     fillcolor = 'rgba(7,164,181,0.2)',
-                    showlegend = FALSE) %>%
-        layout(title = paste(yaxis_name1(),' vs Age
-               Spur Afrika Clinic, January 2018'),
-               xaxis = list(title = 'Age in years'),
-               yaxis = list(title = yaxis_name1()))
+                    showlegend = FALSE)
+      }
       if (gender != 'Any') {
-        if (metric1() %in% c('Height','Weight','BMI')) {
-          p <- add_percentiles(p, gender, metric1(), minmax_rows)
+        if (metric1() %in% c('Height','Weight','bmi')) {
+          minmax_rows <- min(data_subset[[1]]()[[percentiles1()]]):max(data_subset[[1]]()[[percentiles1()]])
+          # minimum/maximum rows of percentiles rows required for plotting
+          
+          p <- add_percentiles(p, gender, metric1(), percentiles1(), minmax_rows)
         }
       }
       p
