@@ -13,7 +13,7 @@ Two sets of plots 'left' and 'right' chart, each with independent filters for Ge
     - Conditions can either be ignored ("No condition filter"), included ("Include") or excluded ("Exclude")
     - Multiple conditions can chosen
     - Once chosen, a condition can be removed from the list by clicking on the condition, and then pressing the 'delete' or 'backspace' key
-    - COnditions can be copied from the left chart to the right chart, using the 'Copy Condition List' button on the top-right
+    - Conditions can be copied from the left chart to the right chart, using the 'Copy Condition List' button on the top-right
 
 Age restrictions can be set in the top-left corner
 
