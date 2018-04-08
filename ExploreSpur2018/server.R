@@ -39,7 +39,13 @@ data_subset <- list() # age filter
 data_condition_set <- list() # condition filter
 
 # Define server logic required to draw a histogram
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
+
+  observeEvent(input$copyfindings, {
+    # copies conditions from left plot selection to right plot
+    updateSelectInput(session, 'Conditions2',
+                      selected = input$Conditions1)
+  })
 
   gender_list1 <- reactive({
     if (input$Gender1 == 'Any') {
@@ -51,12 +57,26 @@ shinyServer(function(input, output) {
     }
   })
 
+  gender_list2 <- reactive({
+    if (input$Gender2 == 'Any') {
+      c('Female','Male')
+    } else if (input$Gender2 == 'Female') {
+      'Female' 
+    } else {
+      'Male'
+    }
+  })
     
   metric1 <- reactive({
     # metric to plot
     return (metric_variable(input$Metric1))
   })
 
+  metric2 <- reactive({
+    # metric to plot
+    return (metric_variable(input$Metric2))
+  })
+  
   metric_variable <- function (choice) {
     # return variable name depending on choice
     # used by reactive variable metric1
@@ -72,7 +92,13 @@ shinyServer(function(input, output) {
     
     return (metric_cluster(input$Metric1))
   })
-
+  
+  metric_cluster2 <- reactive({
+    # group of variables to put in point labels of data
+    
+    return (metric_cluster(input$Metric2))
+  })
+  
   metric_cluster <- function (choice) {
     # return labels depending on choice
     # used by reactive variable metric_cluster1
@@ -95,6 +121,13 @@ shinyServer(function(input, output) {
             
   })
 
+  metric_namecluster2 <- reactive({
+    # variable names depending on metric choice
+    
+    return (metric_namecluster(input$Metric2))
+    
+  })
+  
   metric_namecluster <- function (choice) {
     # return variable names depending on choice
     # used by reactive variable metric_namecluster1
@@ -114,9 +147,14 @@ shinyServer(function(input, output) {
     # name of the y-axis, also used for name of chart
     
     return (yaxis_name(input$Metric1))
-    
   })
-  
+
+  yaxis_name2 <- reactive({
+    # name of the y-axis, also used for name of chart
+    
+    return (yaxis_name(input$Metric2))
+  })
+    
   yaxis_name <- function (choice) {
     # return axis labels depending on choice
     # used by reactive variable yaxis_name1
@@ -139,6 +177,18 @@ shinyServer(function(input, output) {
       NA # no percentile table look-up required for this metric
     }
   })
+
+  percentiles2 <- reactive({
+    if (input$Metric2 == 'Height') {
+      'StatForAgeRows'
+    } else if (input$Metric2 == 'Weight') {
+      'WeightForAgeRows'
+    } else if (input$Metric2 == 'Body Mass Index') {
+      'BMIForAgeRows'
+    } else {
+      NA # no percentile table look-up required for this metric
+    }
+  })
   
   data_subset[[1]] <- reactive({
     unique_child %>%
@@ -149,26 +199,47 @@ shinyServer(function(input, output) {
       filter(Age.in.years <= input$AgeRange[2]) %>%
       filter(id %in% data_condition_set[[1]]()) # filter by condition
   })
+
+  data_subset[[2]] <- reactive({
+    unique_child %>%
+      filter(Gender %in% gender_list2()) %>%
+      filter(!is.na(!!metric2())) %>% # is the metric present?
+      filter(!is.na(Age.in.years)) %>% # must be age data
+      filter(Age.in.years >= input$AgeRange[1]) %>% # filter by age
+      filter(Age.in.years <= input$AgeRange[2]) %>%
+      filter(id %in% data_condition_set[[2]]()) # filter by condition
+  })
   
   data_condition_set[[1]] <- reactive({
     if (input$Include1 == 'No condition filter') {
       return (unique(patient_data$id)) # include everyone
     } else if (input$Include1 == 'Include') {
-      id <- patient_data %>%
-        filter(Finding %in% input$Conditions1) %>% # filter by condition list
-        distinct(id) # only unique IDs, by default, this removes all other columns
-      return (id)
+      patient_list <- patient_data %>%
+        filter(Finding %in% input$Conditions1) # filter by condition list
+      return(unique(patient_list$id))
     } else if (input$Include1 == 'Exclude') {
-      id <- patient_data %>%
-        filter(Finding %in% input$Conditions1) %>%
-        distinct(id)
-      id <- setdiff(unique_ids, id) # the list of IDs which are not in the condition list
+      patient_list <- patient_data %>%
+        filter(Finding %in% input$Conditions1) # filter by condition list
+      id <- setdiff(unique_ids, unique(patient_list$id)) # the list of IDs which are not in the condition list
       return (id)
     }
   })
-  
-  output$list1 <- renderText({ paste(data_condition_set[[1]]()) })
-  
+
+  data_condition_set[[2]] <- reactive({
+    if (input$Include2 == 'No condition filter') {
+      return (unique(patient_data$id)) # include everyone
+    } else if (input$Include2 == 'Include') {
+      patient_list <- patient_data %>%
+        filter(Finding %in% input$Conditions2) # filter by condition list
+      return(unique(patient_list$id))
+    } else if (input$Include2 == 'Exclude') {
+      patient_list <- patient_data %>%
+        filter(Finding %in% input$Conditions2) # filter by condition list
+      id <- setdiff(unique_ids, unique(patient_list$id)) # the list of IDs which are not in the condition list
+      return (id)
+    }
+  })
+
   add_percentiles <- function(p, gender, metric, percentiles, minmax_rows) {
     # add percentiles lines to plotly chart
     
@@ -292,6 +363,30 @@ shinyServer(function(input, output) {
     return(p)
   }
   
+  output$plot1_age <- renderPlotly({
+    if (length(data_subset[[1]]()$id) == 0) {
+      plotly_empty() # no data to plot
+    } else {
+      p <- data_subset[[1]]() %>%
+        plot_ly(x = ~Age.in.years, type = 'box', name = 'Age') %>%
+        layout(title = '',
+               xaxis = list(title = 'Age in years'))
+      p
+    }
+  })
+  
+  output$plot1_metric <- renderPlotly({
+    if (length(data_subset[[1]]()$id) == 0) {
+      plotly_empty() # no data to plot
+    } else {
+      p <- data_subset[[1]]() %>%
+        plot_ly(y = ~get(metric1()), type = 'box', name = input$Metric1) %>%
+        layout(title = '',
+               yaxis = list(title = yaxis_name1()))
+      p
+    }
+  })
+  
   output$plot1 <- renderPlotly({
     gender <- input$Gender1
 
@@ -314,35 +409,37 @@ shinyServer(function(input, output) {
                Spur Afrika Clinic, January 2018'),
                xaxis = list(title = 'Age in years'),
                yaxis = list(title = yaxis_name1()),
-               margin = list(t = 20)) # some space above title
-      if (input$Stat1 == 'Loess') {
-        # Loess ribbon
-        ribbon <- loess(as.formula(paste(metric1(),' ~ Age.in.years')),
-                        data = data_subset[[1]]())
+               margin = list(t = 50)) # some space above title
+      if (length(data_subset[[1]]()$id) > 5) {
+        if (input$Stat1 == 'Loess' & length(data_subset[[1]]()$id) > 5) {
+          # Loess ribbon
+          ribbon <- loess(as.formula(paste(metric1(),' ~ Age.in.years')),
+                          data = data_subset[[1]]())
         
-        p <- p %>%
-          add_lines(y = ~fitted(loess(as.formula(paste(metric1(),' ~ Age.in.years')))),
-                    line = list(color = 'rgba(7,164,181,1)'),
-                    showlegend = FALSE) %>%
-          add_ribbons(data = augment(ribbon),
+          p <- p %>%
+            add_lines(y = ~fitted(loess(as.formula(paste(metric1(),' ~ Age.in.years')))),
+                      line = list(color = 'rgba(7,164,181,1)'),
+                      showlegend = FALSE) %>%
+            add_ribbons(data = augment(ribbon),
+                        ymin = ~.fitted - 1.96 * .se.fit,
+                        ymax = ~.fitted + 1.96 * .se.fit,
+                        line = list(color = 'rgba(7,164,181,0.05)'),
+                        fillcolor = 'rgba(7,164,181,0.2)',
+                        showlegend = FALSE)
+        } else if (input$Stat1 == 'Linear Model' & length(data_subset[[1]]()$id) > 5){
+          ribbon <- lm(as.formula(paste(metric1(),' ~ Age.in.years')),
+                          data = data_subset[[1]]())
+          p <- p %>%
+            add_lines(y = ~fitted(lm(as.formula(paste(metric1(),' ~ Age.in.years')))),
+                      line = list(color = 'rgba(7,164,181,1)'),
+                      showlegend = FALSE) %>%
+            add_ribbons(data = augment(ribbon),
                       ymin = ~.fitted - 1.96 * .se.fit,
                       ymax = ~.fitted + 1.96 * .se.fit,
                       line = list(color = 'rgba(7,164,181,0.05)'),
                       fillcolor = 'rgba(7,164,181,0.2)',
                       showlegend = FALSE)
-      } else if (input$Stat1 == 'Linear Model'){
-        ribbon <- lm(as.formula(paste(metric1(),' ~ Age.in.years')),
-                        data = data_subset[[1]]())
-        p <- p %>%
-          add_lines(y = ~fitted(lm(as.formula(paste(metric1(),' ~ Age.in.years')))),
-                    line = list(color = 'rgba(7,164,181,1)'),
-                    showlegend = FALSE) %>%
-          add_ribbons(data = augment(ribbon),
-                    ymin = ~.fitted - 1.96 * .se.fit,
-                    ymax = ~.fitted + 1.96 * .se.fit,
-                    line = list(color = 'rgba(7,164,181,0.05)'),
-                    fillcolor = 'rgba(7,164,181,0.2)',
-                    showlegend = FALSE)
+        }
       }
       if (gender != 'Any') {
         if (metric1() %in% c('Height','Weight','bmi')) {
@@ -355,94 +452,92 @@ shinyServer(function(input, output) {
       p
     }
   })
-
-  output$plot2 <- renderPlotly({
-    gender <- input$Gender2
-    if (gender == 'Any') {
-      gender_list <- c('Female','Male')
-    } else if (gender == 'Female') {
-      gender_list <- 'Female' 
-    } else {
-      gender_list <- 'Male'
-    }
-    data_subset <- unique_child %>%
-      filter(Gender %in% gender_list) %>%
-      filter(!is.na(Height)) %>% # this will be a height plot
-      filter(!is.na(Age.in.years)) %>% # must be age data
-      filter(Age.in.years >= input$AgeRange[1]) %>%
-      filter(Age.in.years <= input$AgeRange[2])
-    
-    if (length(data_subset$id) == 0) {
+  
+  output$plot2_age <- renderPlotly({
+    if (length(data_subset[[2]]()$id) == 0) {
       plotly_empty() # no data to plot
     } else {
-      # loess ribbon
-      ribbon <- loess(Height ~ Age.in.years,
-                      data = data_subset)
+      p <- data_subset[[2]]() %>%
+        plot_ly(x = ~Age.in.years, type = 'box', name = 'Age') %>%
+        layout(title = '',
+               xaxis = list(title = 'Age in years'))
+      p
+    }
+  })
+  
+  output$plot2_metric <- renderPlotly({
+    if (length(data_subset[[2]]()$id) == 0) {
+      plotly_empty() # no data to plot
+    } else {
+      p <- data_subset[[2]]() %>%
+        plot_ly(y = ~get(metric2()), type = 'box', name = input$Metric2) %>%
+        layout(title = '',
+               yaxis = list(title = yaxis_name2()))
+      p
+    }
+  })
+  
+  output$plot2 <- renderPlotly({
+    gender <- input$Gender2
+    
+    if (length(data_subset[[2]]()$id) == 0) {
+      plotly_empty() # no data to plot
+    } else {
       
-      # minimum/maximum rows of StatForAge rows required for plotting
-      minmax_rows <- min(data_subset$StatForAgeRows):max(data_subset$StatForAgeRows)
-      
-      p <- data_subset %>%
+      p <- data_subset[[2]]() %>%
         plot_ly(x = ~Age.in.years) %>%
-        add_markers(y = ~Height,
+        add_markers(y = ~get(metric2()),
                     type = 'scatter', mode = 'markers', color = ~Gender,
                     showlegend = FALSE,
                     hoverinfo = 'text',
                     text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
-                                  '<br>Height :', sprintf('%.1f', Height),
-                                  '<br>Height-z : ', sprintf('%.1f', Zstat),
-                                  '<br>Height-% : ', sprintf('%.0f', Pstat*100),
+                                  '<br>', metric_namecluster2()[1],' : ', sprintf('%.1f', get(metric_cluster2()[1])),
+                                  '<br>', metric_namecluster2()[2],' : ', sprintf('%.1f', get(metric_cluster2()[2])),
+                                  '<br>', metric_namecluster2()[3],' : ', sprintf('%.0f', get(metric_cluster2()[3])*100),
                                   '<br>ID :',id)) %>%
-        add_lines(y = ~fitted(loess(Height ~ Age.in.years)),
-                  line = list(color = 'rgba(7,164,181,1)'),
-                  showlegend = FALSE) %>%
-        add_ribbons(data = augment(ribbon),
-                    ymin = ~.fitted - 1.96 * .se.fit,
-                    ymax = ~.fitted + 1.96 * .se.fit,
-                    line = list(color = 'rgba(7,164,181,0.05)'),
-                    fillcolor = 'rgba(7,164,181,0.2)',
-                    showlegend = FALSE) %>%
-        layout(title = 'Height (cm) vs Age
-               Spur Afrika Clinic, January 2018',
+        layout(title = paste(yaxis_name2(),' vs Age
+                             Spur Afrika Clinic, January 2018'),
                xaxis = list(title = 'Age in years'),
-               yaxis = list(title = 'Height (cm)'))
+               yaxis = list(title = yaxis_name2()),
+               margin = list(t = 50)) # some space above title
+      if (length(data_subset[[2]]()$id) > 5) {
+        if (input$Stat2 == 'Loess') {
+          # Loess ribbon
+          ribbon <- loess(as.formula(paste(metric2(),' ~ Age.in.years')),
+                          data = data_subset[[2]]())
+        
+          p <- p %>%
+            add_lines(y = ~fitted(loess(as.formula(paste(metric2(),' ~ Age.in.years')))),
+                      line = list(color = 'rgba(7,164,181,1)'),
+                      showlegend = FALSE) %>%
+            add_ribbons(data = augment(ribbon),
+                        ymin = ~.fitted - 1.96 * .se.fit,
+                        ymax = ~.fitted + 1.96 * .se.fit,
+                        line = list(color = 'rgba(7,164,181,0.05)'),
+                        fillcolor = 'rgba(7,164,181,0.2)',
+                        showlegend = FALSE)
+          } else if (input$Stat2 == 'Linear Model'){
+            ribbon <- lm(as.formula(paste(metric2(),' ~ Age.in.years')),
+                         data = data_subset[[2]]())
+            p <- p %>%
+            add_lines(y = ~fitted(lm(as.formula(paste(metric2(),' ~ Age.in.years')))),
+                      line = list(color = 'rgba(7,164,181,1)'),
+                      showlegend = FALSE) %>%
+            add_ribbons(data = augment(ribbon),
+                        ymin = ~.fitted - 1.96 * .se.fit,
+                        ymax = ~.fitted + 1.96 * .se.fit,
+                        line = list(color = 'rgba(7,164,181,0.05)'),
+                        fillcolor = 'rgba(7,164,181,0.2)',
+                        showlegend = FALSE)
+          }
+        }
       if (gender != 'Any') {
-        p <- p %>%
-          add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                    y = ~StatForAge[[gender]][minmax_rows,]$P3,
-                    line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
-                    name = '3rd centile',
-                    showlegend = FALSE,
-                    hoverinfo = 'text',
-                    text = ~paste('3rd centile')) %>%
-          add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                    y = ~StatForAge[[gender]][minmax_rows,]$P25,
-                    line = list(color = 'rgba(0,0,0,0.1)'),
-                    name = '25th centile',
-                    showlegend = FALSE,
-                    hoverinfo = 'text',
-                    text = ~paste('25th centile')) %>%
-          add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                    y = ~StatForAge[[gender]][minmax_rows,]$P50,
-                    line = list(color = 'rgba(0,0,0,0.25), width = 5'),
-                    name = '50th centile',
-                    showlegend = FALSE,
-                    hoverinfo = 'text',
-                    text = ~paste('50th centile')) %>%
-          add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                    y = ~StatForAge[[gender]][minmax_rows,]$P75,
-                    line = list(color = 'rgba(0,0,0,0.1)'),
-                    name = '75th centile',
-                    showlegend = FALSE,
-                    hoverinfo = 'text',
-                    text = ~paste('75th centile')) %>%
-          add_lines(x = ~StatForAge[[gender]][minmax_rows,]$Month/12,
-                    y = ~StatForAge[[gender]][minmax_rows,]$P97,
-                    line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
-                    name = '97th centile',
-                    showlegend = FALSE,
-                    hoverinfo = 'text',
-                    text = ~paste('97th centile'))
+        if (metric2() %in% c('Height','Weight','bmi')) {
+          minmax_rows <- min(data_subset[[2]]()[[percentiles2()]]):max(data_subset[[2]]()[[percentiles2()]])
+          # minimum/maximum rows of percentiles rows required for plotting
+          
+          p <- add_percentiles(p, gender, metric2(), percentiles2(), minmax_rows)
+        }
       }
       p
     }
