@@ -84,6 +84,8 @@ shinyUI(fluidPage(
     column(4,
            plotlyOutput('plot1'),
            fluidRow(br(),br()),
+           fluidRow(textOutput('fit1')),
+           fluidRow(br(),br()),
            fluidRow(plotlyOutput('plot1_metric')),
            fluidRow(br(),br()),
            fluidRow(plotlyOutput('plot1_age'))

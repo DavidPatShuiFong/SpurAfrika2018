@@ -8,11 +8,12 @@ Spur Clinic January 2018
 ========================================================
 
 ```{r echo=FALSE}
-knitr::opts_chunk$set(echo=FALSE, warning=FALSE, include=FALSE)
+
+knitr::opts_chunk$set(fig.width = 10, fig.height = 5) # plot size
+
 # load necessary libraries
 library(plotly)
-library(dplyr)
-library(tidyr)
+library(tidyverse)
 library(RColorBrewer)
 library(broom)
 
@@ -27,14 +28,26 @@ patient_data <- ChildFilteredFindingAnonymisedData
 
 ```
 
+* 'Non-selected' children from complete year levels in several Kibera schools of Nairobi, Kenya.
+* 744 children seen
+
 ```{r echo=FALSE}
 MedianAge <- with(patient_data,median(as.numeric(Age.in.years[Age.in.years<=18])))
 MeanAge <- with(patient_data,mean(as.numeric(Age.in.years[Age.in.years<=18])))
 
+# group patinents into age/gender groups
+p <- patient_data %>%
+  filter(as.integer(Age.in.years)<=18) %>%
+  mutate(Age = as.integer(Age.in.years)) %>%
+  group_by(Age, Gender) %>%
+  summarize(n = n())
+
+TotalPatients <- sum(p$n)
+
 # plotly version of plot
-gp <- patient_data %>%
-  spread(Gender, n) %>% # divide male and female into two different variables
-  mutate(MalePlot = -Male) %>% # negative male count for 'left'-side of plot
+gp <- p %>%
+  spread(Gender, n)  %>% # divide male and female into two different variables
+  mutate(MalePlot = -Male)  %>% # negative male count for 'left'-side of plot
   plot_ly(x = ~Female, y = ~Age, name = 'Female',
           type = 'bar', orientation = 'h',
           hoverinfo = 'text', 
@@ -50,32 +63,329 @@ gp <- patient_data %>%
           barmode = 'overlay',
           title = 'Spur Afrika 2018 clinics - age of children seen',
           annotations = list(list(x = 40, y = 3, showarrow = F,
-                                 text = ~paste('Total children', TotalPatients,
-                                               '<br>Median age: ', sprintf('%.1f',MedianAge),
-                                               '<br>Mean age: ', sprintf('%.1f',MeanAge)))))
+                                  text = ~paste('Total children', TotalPatients,
+                                                '<br>Median age: ', sprintf('%.1f',MedianAge),
+                                                '<br>Mean age: ', sprintf('%.1f',MeanAge)))))
 
-# gp
+suppressWarnings(gp)
 
 ```
 
-- Bullet 1
-- Bullet 2
-- Bullet 3
 
-Slide With Code
+Height vs Age plot
 ========================================================
 
-```{r}
-summary(cars)
+```{r echo=FALSE}
+# calculate Loess smoother with uncertainty bounds for recorded heights
+mf <- loess(Height ~ Age.in.years,
+            data = patient_data[!is.na(patient_data$Age.in.years) &
+              !is.na(patient_data$Height) & patient_data$Gender == 'Female',])
+mm <- loess(Height ~ Age.in.years,
+            data = patient_data[!is.na(patient_data$Age.in.years) &
+              !is.na(patient_data$Height) & patient_data$Gender == 'Male',])
+# minimum/maximum rows of StatForAge rows required for plotting
+minmax_rows <- min(patient_data$StatForAgeRows):max(patient_data$StatForAgeRows)
+
+p1 <- patient_data %>%
+  filter(!is.na(Height) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~Height,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Height :', sprintf('%.1f', Height),
+                        '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>Height-% : ', sprintf('%.0f', Pstat*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Height ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P3,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '3rd centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('3rd centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P25,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '25th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('25th centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P50,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = '50th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('50th centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P75,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '75th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('75th centile')) %>%
+  add_lines(x = ~StatForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Female']][minmax_rows,]$P97,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '97th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('97th centile')) %>%
+  layout(title = 'Height (cm) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Female)'),
+         yaxis = list(title = 'Height (cm)'))
+
+p2 <- patient_data %>%
+  filter(!is.na(Height) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~Height,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>Height :', sprintf('%.1f', Height),
+                        '<br>Height-z : ', sprintf('%.1f', Zstat),
+                        '<br>Height-% : ', sprintf('%.0f', Pstat*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(Height ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P3,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '3rd centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('3rd centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P25,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '25th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('25th centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P50,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = '50th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('50th centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P75,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = '75th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('75th centile')) %>%
+  add_lines(x = ~StatForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~StatForAge[['Male']][minmax_rows,]$P97,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = '97th centile',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('97th centile')) %>%
+  layout(title = 'Height (cm) vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Male)'),
+         yaxis = list(title = 'Height (cm)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
+
 ```
 
-Credits
+* Boys, in particular, appear to be below expected heights from age 10 years to 16 years.
+* Exploratory analysis and charts generated with assistance of [ExploreSpur2018 Shiny App](https://davidfong.shinyapps.io/ExploreSpur2018/).
+
+Body Mass Index (BMI) vs Age plot
 ========================================================
 
-Data collected by SpurAfrika team
+``` {r echo=FALSE}
+# BMI (kg/m^2) vs Age (years), Female and Male Charts
 
-Full reproducible analysis code available at <https://github.com/DavidPatShuiFong/SpurAfrika2018>.
+# calculate Loess smoother with uncertainty bounds for recorded heights
+mf <- loess(bmi ~ Age.in.years,
+            data = patient_data[!is.na(patient_data$Age.in.years) &
+              !is.na(patient_data$Weight) & patient_data$Gender == 'Female',])
+mm <- loess(bmi ~ Age.in.years,
+            data = patient_data[!is.na(patient_data$Age.in.years) &
+              !is.na(patient_data$Weight) & patient_data$Gender == 'Male',])
+# minimum/maximum rows of WeightForAge rows required for plotting
+minmax_rows <- min(patient_data$BMIForAgeRows):max(patient_data$BMIForAgeRows)
+
+p1 <- patient_data %>%
+  filter(!is.na(bmi) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Female') %>%
+  plot_ly(x = ~Age.in.years, color = I('red')) %>%
+  add_markers(y = ~bmi,
+          type = 'scatter', mode = 'markers', name = ~'Female',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>BMI :', sprintf('%.1f', bmi),
+                        '<br>BMI-z : ', sprintf('%.1f', Zbmi),
+                        '<br>BMI-% : ', sprintf('%.0f', Pbmi*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(bmi ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mf),
+              ymin = ~.fitted - 1.96 * .se.fit,
+              ymax = ~.fitted + 1.96 * .se.fit,
+              line = list(color = 'rgba(7,164,181,0.05)'),
+              fillcolor = 'rgba(7,164,181,0.2)',
+              showlegend = FALSE) %>% 
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD2neg,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD-2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -2')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD1neg,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD-1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -1')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD0,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = 'SD0',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev 0')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD1,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD+1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +1')) %>%
+  add_lines(x = ~BMIForAge[['Female']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Female']][minmax_rows,]$SD2,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD+2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +2')) %>%
+  layout(title = 'BMI vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Female)'),
+         yaxis = list(title = 'BMI (kg/m<sup>2</sup>)'))
+
+p2 <- patient_data %>%
+  filter(!is.na(bmi) & !is.na(Age.in.years)) %>%
+  filter(Gender == 'Male') %>%
+  plot_ly(x = ~Age.in.years, color=I('blue')) %>%
+  add_markers(y = ~bmi,
+          type = 'scatter', mode = 'markers', name = ~'Male',
+          showlegend = FALSE,
+          hoverinfo = 'text',
+          text = ~paste('Age : ', sprintf('%.1f', Age.in.years),
+                        '<br>BMI :', sprintf('%.1f', bmi),
+                        '<br>BMI-z : ', sprintf('%.1f', Zbmi),
+                        '<br>BMI-% : ', sprintf('%.0f', Pbmi*100),
+                        '<br>ID :',id)) %>%
+  add_lines(y = ~fitted(loess(bmi ~ Age.in.years)),
+            line = list(color = 'rgba(7,164,181,1)'),
+            showlegend = FALSE) %>%
+  add_ribbons(data = augment(mm),
+            ymin = ~.fitted - 1.96 * .se.fit,
+            ymax = ~.fitted + 1.96 * .se.fit,
+            line = list(color = 'rgba(7,164,181,0.05)'),
+            fillcolor = 'rgba(7,164,181,0.2)',
+            showlegend = FALSE) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD2neg,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD-2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -2')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD1neg,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD-1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev -1')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD0,
+            line = list(color = 'rgba(0,0,0,0.25), width = 5'),
+            name = 'SD0',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev 0')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD1,
+            line = list(color = 'rgba(0,0,0,0.1)'),
+            name = 'SD+1',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +1')) %>%
+  add_lines(x = ~BMIForAge[['Male']][minmax_rows,]$Month/12,
+            y = ~BMIForAge[['Male']][minmax_rows,]$SD2,
+            line = list(color = 'rgba(0,0,0,0.1)', dash = 'dash'),
+            name = 'SD+2',
+            showlegend = FALSE,
+            hoverinfo = 'text',
+            text = ~paste('Std Dev +2')) %>%
+  layout(title = 'BMI vs Age
+         Spur Afrika Clinic, January 2018',
+         xaxis = list(title = 'Age in years (Male)'),
+         yaxis = list(title = 'BMI (kg/m<sup>2</sup>)'))
+
+p <- subplot(p1, p2, shareY = TRUE, titleX = TRUE)
+
+suppressWarnings(p)
+
+```
+
+* Similarly, boys below the expected BMI from age 7 years to 16 years
+* Exploratory analysis and charts generated with assistance of [ExploreSpur2018 Shiny App](https://davidfong.shinyapps.io/ExploreSpur2018/).
+
+Conclusion
+========================================================
+
+Recommend further investigation into significance of results, explore
+associated illness and possible selection bias.
+
+<br>
+<br>
+<br>
+
+### Credits
+
+Data collected by [SpurAfrika](http://www.spurafrika.org) team
+
+Full reproducible analysis code available at <https://github.com/DavidPatShuiFong/SpurAfrika2018>
+
+* Exploratory analysis and charts generated with assistance of [ExploreSpur2018 Shiny App](https://davidfong.shinyapps.io/ExploreSpur2018/).
+
 
 ```{r, echo=FALSE}
-plot(cars)
 ```

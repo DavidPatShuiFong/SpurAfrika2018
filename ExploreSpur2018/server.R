@@ -387,6 +387,16 @@ shinyServer(function(input, output, session) {
     }
   })
   
+  output$fit1 <- renderText({
+    if (length(data_subset[[1]]()$id) > 5 & (input$Stat1 == 'Linear Model' & length(data_subset[[1]]()$id) > 5)) {
+      model <- lm(as.formula(paste(metric1(),' ~ Age.in.years')),
+                  data = data_subset[[1]]())
+      paste(print(summary.lm(model)))
+    } else {
+      paste(' ')
+    }
+  })
+
   output$plot1 <- renderPlotly({
     gender <- input$Gender1
 
